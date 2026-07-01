@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="PPL Тренировки" />
+<title>Программа тренировок — Push / Pull / Legs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  html, body { margin: 0; padding: 0; background: #15130f; }
+  #root { min-height: 100vh; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.0/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  // Локальное хранилище вместо Claude window.storage — работает офлайн в браузере
+  window.storage = {
+    async get(key, shared) {
+      const v = localStorage.getItem(key);
+      if (v === null) return null;
+      return { key, value: v, shared: !!shared };
+    },
+    async set(key, value, shared) {
+      localStorage.setItem(key, value);
+      return { key, value, shared: !!shared };
+    },
+    async delete(key, shared) {
+      localStorage.removeItem(key);
+      return { key, deleted: true, shared: !!shared };
+    },
+    async list(prefix, shared) {
+      const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+      return { keys, prefix, shared: !!shared };
+    }
+  };
+</script>
+
+<script type="text/babel" data-presets="react">
+
+/* ====================== DATA (упражнения: exercises-dataset (hasaneyldrm) — переводы/инструкции;
+   фото: free-exercise-db (yuhonas), открытый датасет с реальными фото) ====================== */
+const PROGRAM = {"push": [{"id": "0025", "name": "Жим штанги лёжа", "nameEn": "barbell bench press", "target": "pectorals", "equipment": "barbell", "instructions": "Лягте на скамью, поставьте ступни на землю и прижмите спину к скамье. Возьмите штангу хватом сверху на расстоянии чуть шире плеч. Снимите штангу со стойки и держите ее прямо над грудью, полностью вытянув руки. Медленно опустите штангу к груди, держа локти прижатыми. Сделайте паузу на мгновение, когда штанга коснется вашей груди. Верните штангу в исходное положение, вытянув руки. Повторите необходимое количество повторений.", "sets": "4", "reps": "8-10", "rest": 120, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"], "sourceName": "Barbell Bench Press - Medium Grip", "recMin": 60, "recMax": 75, "recNote": "от штанги весом тела начни с разминки, рабочие 60-75 кг на 8-10 повторов"}, {"id": "0314", "name": "Жим гантелей на наклонной скамье", "nameEn": "dumbbell incline bench press", "target": "pectorals", "equipment": "dumbbell", "instructions": "Установите наклонную скамью под углом 45 градусов. Сядьте на скамью, поставьте ноги на землю и плотно прижмите спину к скамье. Возьмите по гантели в каждую руку ладонями вперед и поднимите их на высоту плеч. Медленно опустите гантели по бокам груди, держа локти под углом 90 градусов. Верните гантели в исходное положение, полностью выпрямив руки. Повторите необходимое количество повторений.", "sets": "3", "reps": "10-12", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Press/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Press/1.jpg"], "sourceName": "Incline Dumbbell Press", "recMin": 20, "recMax": 26, "recNote": "вес одной гантели"}, {"id": "0405", "name": "Жим гантелей сидя (плечи)", "nameEn": "dumbbell seated shoulder press", "target": "delts", "equipment": "dumbbell", "instructions": "Сядьте на скамью, взяв в каждую руку по гантели, положив их на бедра. Поднимите гантели на высоту плеч, ладони смотрят вперед. Выжмите гантели вверх, пока руки полностью не выпрямятся над головой. Задержитесь на мгновение в верхней точке, затем медленно опустите гантели обратно на высоту плеч. Повторите необходимое количество повторений.", "sets": "3", "reps": "8-10", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Dumbbell_Press/1.jpg"], "sourceName": "Seated Dumbbell Press", "recMin": 16, "recMax": 22, "recNote": "вес одной гантели"}, {"id": "0334", "name": "Разведение гантелей в стороны", "nameEn": "dumbbell lateral raise", "target": "delts", "equipment": "dumbbell", "instructions": "Встаньте, ноги на ширине плеч, возьмите в каждую руку по гантели ладонями к телу. Держите спину прямо и задействуйте корпус. Поднимите руки в стороны до тех пор, пока они не станут параллельны полу, сохраняя небольшой изгиб в локтях. Задержитесь на мгновение в верхней точке, затем медленно опустите руки обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "12-15", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/1.jpg"], "sourceName": "Side Lateral Raise", "recMin": 8, "recMax": 12, "recNote": "вес одной гантели, без читинга"}, {"id": "1269", "name": "Сведение рук в кроссовере стоя", "nameEn": "cable standing up straight crossovers", "target": "pectorals", "equipment": "cable", "instructions": "Встаньте в центр канатной машины, поставив ноги на ширине плеч. Держите ручки тросов ладонями вниз и вытяните руки в стороны. Держа руки прямыми, сведите ладони перед собой, скрестив их друг с другом. Сделайте паузу на мгновение, затем медленно вернитесь в исходное положение, держа руки вытянутыми. Повторите необходимое количество повторений.", "sets": "3", "reps": "12-15", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Crossover/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Crossover/1.jpg"], "sourceName": "Cable Crossover", "recMin": 12, "recMax": 18, "recNote": "вес на каждом блоке"}, {"id": "0060", "name": "Французский жим штанги лёжа", "nameEn": "barbell lying triceps extension skull crusher", "target": "triceps", "equipment": "barbell", "instructions": "Лягте на скамью, положив ноги на землю, а голову на край скамьи. Возьмите штангу хватом сверху, руки на ширине плеч, вытяните руки вверх над грудью. Удерживая плечи неподвижно, медленно опустите штангу ко лбу, сгибая локти. Сделайте паузу на мгновение, когда штанга окажется прямо над лбом, затем вытяните руки обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "10-12", "rest": 60, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/1.jpg"], "sourceName": "EZ-Bar Skullcrusher", "recMin": 20, "recMax": 30, "recNote": "суммарный вес штанги/EZ-грифа без учёта веса самого грифа"}, {"id": "0241", "name": "Разгибание рук на блоке (трицепс)", "nameEn": "cable triceps pushdown (v-bar)", "target": "triceps", "equipment": "cable", "instructions": "Прикрепите V-образную насадку к тросовому станку на самой высокой скорости. Встаньте лицом к канатному тренажеру, поставив ноги на ширине плеч. Возьмитесь за V-образную перекладину хватом сверху, ладонями вниз, руки на ширине плеч. На протяжении всего упражнения держите локти близко к бокам, а плечи неподвижными. Задействуйте трицепсы и на выдохе опускайте V-образную планку вниз, пока руки полностью не выпрямятся. Задержитесь на мгновение в нижней части движения, напрягая трицепсы. На вдохе медленно возвращайте V-образную планку в исходное положение, сохраняя контроль. Повторите необходимое количество повторений.", "sets": "3", "reps": "12-15", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/1.jpg"], "sourceName": "Triceps Pushdown - V-Bar Attachment", "recMin": 25, "recMax": 35, "recNote": "вес стека"}], "pull": [{"id": "1429", "name": "Подтягивания широким хватом", "nameEn": "wide grip pull-up", "target": "lats", "equipment": "body weight", "instructions": "Повисните на перекладине, повернув ладонями от себя и расставив руки на ширине плеч. Напрягите корпус и сведите лопатки вместе. Подтягивайте тело к перекладине, пока подбородок не окажется над перекладиной. Опустите тело обратно в исходное положение, контролируя его. Повторите необходимое количество повторений.", "sets": "4", "reps": "8-10", "rest": 120, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"], "sourceName": "Pullups", "recMin": 0, "recMax": 0, "recNote": "свой вес тела; если 8-10 чистых подтягиваний пока тяжело — используй тренажёр гравитрон (компенсация 15-25 кг)"}, {"id": "0027", "name": "Тяга штанги в наклоне", "nameEn": "barbell bent over row", "target": "upper back", "equipment": "barbell", "instructions": "Встаньте, ноги на ширине плеч и слегка согнуты в коленях. Наклонитесь вперед в бедрах, сохраняя спину прямой и грудь вверх. Возьмите штангу хватом сверху, руки на расстоянии чуть шире плеч. Потяните штангу к нижней части груди, сводя лопатки и напрягая мышцы спины. Задержитесь на мгновение в верхней точке, затем медленно опустите штангу обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "4", "reps": "8-10", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"], "sourceName": "Bent Over Barbell Row", "recMin": 50, "recMax": 65, "recNote": "рабочий вес штанги"}, {"id": "0180", "name": "Тяга нижнего блока сидя", "nameEn": "cable low seated row", "target": "upper back", "equipment": "cable", "instructions": "Сядьте на тренажер, поставьте ноги на подножки и слегка согните колени. Возьмитесь за рукоятки верхним хватом ладонями вниз. Держите спину прямо и слегка наклонитесь вперед, сохраняя небольшой изгиб в локтях. Потяните ручки к телу, сведя лопатки вместе. Задержитесь на мгновение на пике движения, затем медленно отпустите ручки обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "10-12", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/1.jpg"], "sourceName": "Seated Cable Rows", "recMin": 45, "recMax": 60, "recNote": "вес стека"}, {"id": "0292", "name": "Тяга гантели одной рукой в наклоне", "nameEn": "dumbbell one arm bent-over row", "target": "upper back", "equipment": "dumbbell", "instructions": "Встаньте, ноги на ширине плеч, держите гантель в одной руке ладонью к телу. Слегка согните колени и наклонитесь вперед в бедрах, сохраняя спину прямой и напряженный корпус. Пусть гантель свисает прямо к полу, полностью выпрямив руку. Подтяните гантель к груди, держа локоть близко к телу и сжимая лопатки вместе. Задержитесь на мгновение в верхней точке, затем медленно опустите гантель обратно в исходное положение. Повторите желаемое количество повторений, затем поменяйте сторону.", "sets": "3", "reps": "10-12", "rest": 60, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/1.jpg"], "sourceName": "One-Arm Dumbbell Row", "recMin": 20, "recMax": 28, "recNote": "вес одной гантели"}, {"id": "0383", "name": "Разведение гантелей в наклоне (задние дельты)", "nameEn": "dumbbell reverse fly", "target": "delts", "equipment": "dumbbell", "instructions": "Встаньте, ноги на ширине плеч, возьмите в каждую руку по гантели. Слегка согните колени и наклонитесь вперед в бедрах, сохраняя спину прямой. Вытяните руки прямо перед собой, ладони обращены друг к другу. Сохраняя небольшой изгиб в локтях, поднимите руки в стороны, пока они не станут параллельны земле. Задержитесь на мгновение в верхней точке, затем медленно опустите руки обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "12-15", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Flyes/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Reverse_Flyes/1.jpg"], "sourceName": "Reverse Flyes", "recMin": 6, "recMax": 10, "recNote": "вес одной гантели"}, {"id": "0031", "name": "Подъём штанги на бицепс стоя", "nameEn": "barbell curl", "target": "biceps", "equipment": "barbell", "instructions": "Встаньте прямо, ноги на ширине плеч, возьмите штангу обратным хватом ладонями вперед. Держите локти близко к туловищу и выдыхайте, сгибая штангу и одновременно сокращая бицепсы. Продолжайте поднимать штангу до тех пор, пока ваши бицепсы полностью не сократятся и штанга не окажется на уровне плеч. Задержитесь в сокращенном положении на короткую паузу, одновременно сжимая бицепсы. На вдохе начните медленно опускать штангу обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "10-12", "rest": 60, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/1.jpg"], "sourceName": "Barbell Curl", "recMin": 25, "recMax": 35, "recNote": "рабочий вес штанги"}, {"id": "1648", "name": "Попеременный подъём гантелей сидя (молотки)", "nameEn": "dumbbell alternate seated hammer curl", "target": "biceps", "equipment": "dumbbell", "instructions": "Сядьте на скамью, взяв в каждую руку по гантели, ладони обращены к туловищу, руки вытянуты вниз. Держите спину прямо, а локти близко к туловищу. Выдохните и согните гантель в правой руке к плечу, сохраняя плечо неподвижным. Продолжайте поднимать гантель до тех пор, пока ваши бицепсы полностью не сократятся и гантель не окажется на уровне плеч. Сделайте короткую паузу, затем вдохните и медленно опустите гантель обратно в исходное положение. Повторите движение левой рукой. Продолжайте чередовать руки желаемое количество повторений.", "sets": "3", "reps": "12-15", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hammer_Curls/1.jpg"], "sourceName": "Hammer Curls", "recMin": 12, "recMax": 16, "recNote": "вес одной гантели"}], "legs": [{"id": "0043", "name": "Приседания со штангой", "nameEn": "barbell full squat", "target": "glutes", "equipment": "barbell", "instructions": "Встаньте, ноги на ширине плеч, носки слегка развернуты наружу. Держите штангу на верхней части спины, опираясь на трапеции или задние дельты. Напрягите корпус и держите грудь поднятой, когда начинаете опускать тело вниз. Согните колени и бедра, отводя бедра назад и вниз, как будто вы сидите на стуле. Опускайтесь до тех пор, пока бедра не станут параллельны земле или немного ниже. Держите колени на одной линии с пальцами ног, а вес тела перенесите на пятки. Протолкните пятки, чтобы встать обратно, выпрямляя бедра и колени. Повторите необходимое количество повторений.", "sets": "4", "reps": "8-10", "rest": 150, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/1.jpg"], "sourceName": "Barbell Squat", "recMin": 70, "recMax": 90, "recNote": "рабочий вес штанги (без учёта веса грифа уже включён)"}, {"id": "0085", "name": "Румынская тяга со штангой", "nameEn": "barbell romanian deadlift", "target": "glutes", "equipment": "barbell", "instructions": "Встаньте, поставив ноги на ширине плеч, носки ног направлены вперед. Возьмите штангу хватом сверху, руки чуть шире плеч. Согните бедра, сохраняя спину прямой и слегка согнутыми в коленях. Опустите штангу к земле, держа ее близко к телу. Почувствуйте растяжение подколенных сухожилий, когда опускаете штангу. Как только вы почувствуете растяжение подколенных сухожилий, выдвиньте бедра вперед и встаньте прямо. Напрягите ягодицы в верхней точке движения. Опустите штангу обратно в исходное положение и повторите желаемое количество повторений.", "sets": "4", "reps": "8-10", "rest": 120, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/1.jpg"], "sourceName": "Romanian Deadlift", "recMin": 70, "recMax": 90, "recNote": "рабочий вес штанги"}, {"id": "2287", "name": "Жим ногами в тренажёре", "nameEn": "lever alternate leg press", "target": "quads", "equipment": "leverage machine", "instructions": "Отрегулируйте сиденье и платформу для ног рычажной машины в желаемое положение. Сядьте на тренажер, прислонившись спиной к спинке и поставив ноги на платформу для ног. Положите руки на ручки или по бокам машины для устойчивости. Упритесь одной ногой в платформу для ног, вытягивая ногу до тех пор, пока она не станет почти полностью прямой. Сделайте паузу на мгновение, затем медленно согните ногу и вернитесь в исходное положение. Повторите с другой ногой. Продолжайте чередовать ноги желаемое количество повторений.", "sets": "3", "reps": "10-12", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"], "sourceName": "Leg Press", "recMin": 140, "recMax": 180, "recNote": "суммарный вес на платформе тренажёра"}, {"id": "0336", "name": "Выпады с гантелями", "nameEn": "dumbbell lunge", "target": "glutes", "equipment": "dumbbell", "instructions": "Встаньте, ноги на ширине плеч, держа в каждой руке по гантели. Сделайте шаг вперед правой ногой, опуская тело в положение выпада. При опускании тела держите спину прямо и грудь вверх. Оттолкнитесь правой пяткой, чтобы вернуться в исходное положение. Повторите с левой ногой. Чередуйте ноги необходимое количество повторений.", "sets": "3", "reps": "10-12", "rest": 90, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunges/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Lunges/1.jpg"], "sourceName": "Dumbbell Lunges", "recMin": 14, "recMax": 18, "recNote": "вес одной гантели"}, {"id": "0586", "name": "Сгибание ног лёжа в тренажёре", "nameEn": "lever lying leg curl", "target": "hamstrings", "equipment": "leverage machine", "instructions": "Отрегулируйте тренажер под свое тело и выберите желаемый вес. Лягте на тренажер лицом вниз, выпрямив ноги и упираясь пятками в мягкий рычаг. Возьмитесь за ручки или боковые стороны машины для устойчивости. Удерживая верхнюю часть тела неподвижно, выдохните и согните ноги как можно выше, не отрывая бедра от подушки. Задержитесь в сокращенном положении на короткую паузу, сжимая мышцы задней поверхности бедра. Вдохните и медленно опустите рычаг обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "12-15", "rest": 60, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Lying_Leg_Curls/1.jpg"], "sourceName": "Lying Leg Curls", "recMin": 35, "recMax": 45, "recNote": "вес стека"}, {"id": "1372", "name": "Подъём на носки стоя со штангой", "nameEn": "barbell standing calf raise", "target": "calves", "equipment": "barbell", "instructions": "Встаньте, ноги на ширине плеч, положите штангу на верхнюю часть спины. Поднимите пятки от земли как можно выше, используя только пальцы ног. Задержитесь на мгновение в верхней точке, затем медленно опустите пятки обратно в исходное положение. Повторите необходимое количество повторений.", "sets": "4", "reps": "15-20", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"], "sourceName": "Standing Barbell Calf Raise", "recMin": 40, "recMax": 60, "recNote": "доп. вес сверх штанги"}, {"id": "0212", "name": "Скручивания на блоке сидя", "nameEn": "cable seated crunch", "target": "abs", "equipment": "cable", "instructions": "Сядьте на канатный тренажер, поставив ноги на землю и согнув колени. Возьмите рукоятку троса обеими руками и поместите ее за голову. Напрягите пресс и медленно наклоните верхнюю часть тела вперед, приближая грудь к коленям. Задержитесь на мгновение в верхней точке, затем медленно вернитесь в исходное положение. Повторите необходимое количество повторений.", "sets": "3", "reps": "15-20", "rest": 45, "images": ["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Seated_Crunch/0.jpg", "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Seated_Crunch/1.jpg"], "sourceName": "Cable Seated Crunch", "recMin": 25, "recMax": 35, "recNote": "вес стека"}]}
+;
+
+const DAY_META = {
+  push: { label: "PUSH", sub: "Грудь · Плечи · Трицепс", code: "01" },
+  pull: { label: "PULL", sub: "Спина · Бицепс · Зад. дельты", code: "02" },
+  legs: { label: "LEGS", sub: "Ноги · Ягодицы · Кор", code: "03" },
+};
+
+const TARGET_RU = {
+  pectorals: "грудь", delts: "дельты", triceps: "трицепс", lats: "широчайшие",
+  "upper back": "верх спины", biceps: "бицепс", glutes: "ягодицы", quads: "квадрицепс",
+  hamstrings: "бицепс бедра", calves: "икры", abs: "пресс",
+};
+
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+function fmtClock(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const r = Math.floor(s % 60).toString().padStart(2, "0");
+  return `${m}:${r}`;
+}
+
+function youtubeSearchUrl(nameEn) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(nameEn + " exercise tutorial form")}`;
+}
+
+/* ====================== STORAGE HELPERS ====================== */
+async function loadLog(exId) {
+  try {
+    const res = await window.storage.get(`log:${exId}`, false);
+    return res ? JSON.parse(res.value) : null;
+  } catch {
+    return null;
+  }
+}
+async function saveLog(exId, data) {
+  try {
+    await window.storage.set(`log:${exId}`, JSON.stringify(data), false);
+  } catch (e) {
+    console.error("storage set failed", e);
+  }
+}
+
+/* ====================== ФОТО С FALLBACK ====================== */
+function ExPhoto({ src, alt, className }) {
+  const [failed, setFailed] = React.useState(false);
+  if (failed || !src) {
+    return (
+      <div className={`${className} photo-fallback`}>
+        <svg viewBox="0 0 24 24" width="40%" height="40%">
+          <circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />;
+}
+
+/* ====================== EXERCISE CARD ====================== */
+function ExerciseCard({ ex, index }) {
+  const numSets = parseInt(ex.sets, 10);
+  const [rows, setRows] = React.useState(
+    Array.from({ length: numSets }, () => ({ weight: "", reps: "", done: false }))
+  );
+  const [lastSession, setLastSession] = React.useState(null);
+  const [open, setOpen] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+  const [timer, setTimer] = React.useState(null);
+  const [photoPhase, setPhotoPhase] = React.useState(0);
+  const [lightbox, setLightbox] = React.useState(false);
+  const intervalRef = React.useRef(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const log = await loadLog(ex.id);
+      if (mounted && log) {
+        setLastSession(log.history && log.history.length ? log.history[log.history.length - 1] : null);
+        if (log.date === todayKey() && log.rows) {
+          setRows(log.rows);
+          setSaved(true);
+        }
+      }
+    })();
+    return () => { mounted = false; };
+  }, [ex.id]);
+
+  React.useEffect(() => {
+    if (timer === null || timer <= 0) return;
+    intervalRef.current = setInterval(() => {
+      setTimer((t) => (t === null || t <= 1 ? 0 : t - 1));
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [timer]);
+
+  const updateRow = (i, field, val) => {
+    setRows((prev) => {
+      const next = [...prev];
+      next[i] = { ...next[i], [field]: val };
+      return next;
+    });
+    setSaved(false);
+  };
+
+  const toggleDone = (i) => updateRow(i, "done", !rows[i].done);
+
+  const handleSave = async () => {
+    const existing = await loadLog(ex.id);
+    const history = existing && Array.isArray(existing.history) ? existing.history.filter(h => h.date !== todayKey()) : [];
+    const completed = rows.filter(r => r.weight !== "" || r.reps !== "");
+    if (completed.length) history.push({ date: todayKey(), rows: completed });
+    const trimmed = history.slice(-12);
+    await saveLog(ex.id, { date: todayKey(), rows, history: trimmed });
+    setLastSession(trimmed.length ? trimmed[trimmed.length - 1] : null);
+    setSaved(true);
+  };
+
+  const doneCount = rows.filter(r => r.done).length;
+  const allDone = doneCount === numSets;
+  const photos = ex.images || [];
+
+  return (
+    <div className={`ex-card ${allDone ? "ex-card--done" : ""}`}>
+      <div className="ex-head" onClick={() => setOpen(!open)}>
+        <ExPhoto src={photos[0]} alt={ex.nameEn} className="ex-thumb" />
+        <div className="ex-headtext">
+          <div className="ex-name">{ex.name}</div>
+          <div className="ex-meta">
+            <span className="ex-target">{TARGET_RU[ex.target] || ex.target}</span>
+            <span className="dot">·</span>
+            <span>{ex.sets}×{ex.reps}</span>
+            <span className="dot">·</span>
+            <span>отдых {ex.rest}с</span>
+          </div>
+        </div>
+        <div className="ex-progress">{doneCount}/{numSets}</div>
+        <div className={`chev ${open ? "chev--open" : ""}`}>▾</div>
+      </div>
+
+      {open && (
+        <div className="ex-body">
+          <div className="ex-photo-block">
+            <div className="ex-photo-big" onClick={() => setLightbox(true)}>
+              <ExPhoto src={photos[photoPhase]} alt={ex.nameEn} className="ex-photo-img" />
+              <div className="ex-photo-zoom">⤢</div>
+            </div>
+            {photos.length > 1 && (
+              <div className="photo-toggle">
+                {photos.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`phase-btn ${photoPhase === i ? "phase-btn--on" : ""}`}
+                    onClick={() => setPhotoPhase(i)}
+                  >
+                    {i === 0 ? "Старт" : "Финал"}
+                  </button>
+                ))}
+              </div>
+            )}
+            <a className="video-link" href={youtubeSearchUrl(ex.nameEn)} target="_blank" rel="noopener noreferrer">
+              ▶ Видео техники на YouTube
+            </a>
+          </div>
+
+          <div className="rec-weight">
+            <span className="rec-label">Стартовый вес</span>
+            <span className="rec-value">
+              {ex.recMin === 0 && ex.recMax === 0 ? "вес тела" : `${ex.recMin}–${ex.recMax} кг`}
+            </span>
+            <span className="rec-note">{ex.recNote}</span>
+          </div>
+
+          <p className="ex-instr">{ex.instructions}</p>
+
+          {lastSession && (
+            <div className="ex-last">
+              Прошлый раз ({lastSession.date.slice(5)}):{" "}
+              {lastSession.rows.map((r, i) => (
+                <span key={i} className="last-chip">{r.weight || "—"}кг×{r.reps || "—"}</span>
+              ))}
+            </div>
+          )}
+
+          <div className="set-table">
+            <div className="set-row set-row--header">
+              <span>Подход</span><span>Вес, кг</span><span>Повторы</span><span></span>
+            </div>
+            {rows.map((row, i) => (
+              <div className="set-row" key={i}>
+                <span className="set-idx">{i + 1}</span>
+                <input
+                  type="number" inputMode="decimal"
+                  placeholder={lastSession?.rows?.[i]?.weight || (ex.recMax ? `~${Math.round((ex.recMin + ex.recMax) / 2)}` : "—")}
+                  value={row.weight}
+                  onChange={(e) => updateRow(i, "weight", e.target.value)}
+                />
+                <input
+                  type="number" inputMode="numeric"
+                  placeholder={lastSession?.rows?.[i]?.reps || ex.reps.split("-")[0]}
+                  value={row.reps}
+                  onChange={(e) => updateRow(i, "reps", e.target.value)}
+                />
+                <button className={`check ${row.done ? "check--on" : ""}`} onClick={() => toggleDone(i)} aria-label="Подход выполнен">
+                  {row.done ? "✓" : ""}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="ex-actions">
+            <button className="btn-rest" onClick={() => setTimer(ex.rest)}>
+              {timer !== null && timer > 0 ? `⏱ ${fmtClock(timer)}` : `⏱ Таймер отдыха ${ex.rest}с`}
+            </button>
+            <button className="btn-save" onClick={handleSave}>
+              {saved ? "Сохранено" : "Сохранить подходы"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(false)}>
+          <ExPhoto src={photos[photoPhase]} alt={ex.nameEn} className="lightbox-img" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ====================== APP ====================== */
+function WorkoutApp() {
+  const [day, setDay] = React.useState("push");
+  const exercises = PROGRAM[day];
+
+  return (
+    <div className="app">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap');
+
+        :root {
+          --bg: #15130f; --surface: #1f1c16; --surface2: #262219; --line: #353025;
+          --chalk: #ece6d8; --chalk-dim: #a39a89;
+          --rust: #c1502e; --rust-dim: #8a3a22; --olive: #7c9473;
+        }
+        * { box-sizing: border-box; }
+        .app {
+          background: var(--bg); color: var(--chalk); font-family: 'Inter', sans-serif;
+          min-height: 100%; padding-bottom: 40px;
+          background-image: radial-gradient(circle at 15% 0%, rgba(193,80,46,0.07), transparent 40%),
+            radial-gradient(circle at 85% 10%, rgba(255,255,255,0.03), transparent 35%);
+        }
+        .header { padding: 28px 20px 18px 20px; border-bottom: 1px solid var(--line); }
+        .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: var(--rust); text-transform: uppercase; margin-bottom: 6px; }
+        .title { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: 0.01em; text-transform: uppercase; }
+        .subtitle { color: var(--chalk-dim); font-size: 13px; margin-top: 4px; }
+
+        .day-rack { display: flex; margin: 18px 20px 0 20px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+        .day-plate { flex: 1; padding: 14px 6px; text-align: center; cursor: pointer; border-right: 1px solid var(--line); transition: background 0.15s ease; }
+        .day-plate:last-child { border-right: none; }
+        .day-plate:hover { background: var(--surface2); }
+        .day-plate--active { background: var(--rust); }
+        .day-plate-code { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--chalk-dim); letter-spacing: 0.1em; }
+        .day-plate--active .day-plate-code { color: rgba(255,255,255,0.75); }
+        .day-plate-label { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 16px; margin-top: 2px; letter-spacing: 0.04em; }
+        .day-plate-sub { font-size: 10px; color: var(--chalk-dim); margin-top: 3px; }
+        .day-plate--active .day-plate-sub { color: rgba(255,255,255,0.85); }
+
+        .list { padding: 18px 20px 0 20px; display: flex; flex-direction: column; gap: 10px; }
+        .ex-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color 0.15s ease; position: relative; }
+        .ex-card--done { border-color: var(--olive); }
+        .ex-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; }
+        .ex-thumb { flex-shrink: 0; width: 46px; height: 46px; border-radius: 7px; object-fit: cover; background: var(--surface2); border: 1px solid var(--line); }
+        .photo-fallback { display: flex; align-items: center; justify-content: center; color: var(--chalk-dim); }
+        .ex-headtext { flex: 1; min-width: 0; }
+        .ex-name { font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 15px; letter-spacing: 0.01em; }
+        .ex-meta { font-size: 11.5px; color: var(--chalk-dim); margin-top: 3px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .ex-target { text-transform: capitalize; }
+        .dot { opacity: 0.5; }
+        .ex-progress { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--olive); flex-shrink: 0; }
+        .chev { color: var(--chalk-dim); transition: transform 0.15s ease; flex-shrink: 0; }
+        .chev--open { transform: rotate(180deg); }
+
+        .ex-body { padding: 0 14px 16px 14px; border-top: 1px solid var(--line); }
+
+        .ex-photo-block { margin: 12px 0 12px 0; }
+        .ex-photo-big { position: relative; width: 100%; aspect-ratio: 16/10; border-radius: 8px; overflow: hidden; background: var(--surface2); border: 1px solid var(--line); cursor: zoom-in; }
+        .ex-photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ex-photo-zoom { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.55); color: #fff; width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+        .photo-toggle { display: flex; gap: 6px; margin-top: 8px; }
+        .phase-btn { flex: 1; background: var(--surface2); border: 1px solid var(--line); color: var(--chalk-dim); border-radius: 6px; padding: 6px; font-size: 11.5px; cursor: pointer; }
+        .phase-btn--on { background: var(--rust); color: #fff; border-color: var(--rust); }
+        .video-link { display: block; text-align: center; margin-top: 8px; font-size: 12px; color: var(--chalk); background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; padding: 9px; text-decoration: none; }
+        .video-link:hover { border-color: var(--rust); color: var(--rust); }
+
+        .rec-weight { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; background: var(--surface2); border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; margin-bottom: 12px; }
+        .rec-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--chalk-dim); }
+        .rec-value { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; color: var(--rust); }
+        .rec-note { font-size: 11px; color: var(--chalk-dim); flex-basis: 100%; }
+
+        .ex-instr { font-size: 12.5px; line-height: 1.55; color: var(--chalk-dim); margin: 0 0 10px 0; }
+        .ex-last { font-size: 11.5px; color: var(--chalk-dim); margin-bottom: 10px; }
+        .last-chip { font-family: 'JetBrains Mono', monospace; color: var(--chalk); margin-left: 6px; }
+
+        .set-table { display: flex; flex-direction: column; gap: 6px; }
+        .set-row { display: grid; grid-template-columns: 28px 1fr 1fr 36px; gap: 8px; align-items: center; }
+        .set-row--header { font-size: 10.5px; color: var(--chalk-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+        .set-idx { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--chalk-dim); text-align: center; }
+        .set-row input { background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; color: var(--chalk); font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px; width: 100%; outline: none; }
+        .set-row input:focus { border-color: var(--rust); }
+        .set-row input::placeholder { color: #5a5447; }
+        .check { background: var(--surface2); border: 1px solid var(--line); border-radius: 6px; color: var(--olive); font-size: 14px; height: 34px; cursor: pointer; }
+        .check--on { background: var(--olive); color: var(--bg); border-color: var(--olive); }
+
+        .ex-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .btn-rest, .btn-save { flex: 1; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 13px; padding: 11px 10px; border-radius: 7px; border: 1px solid var(--line); cursor: pointer; }
+        .btn-rest { background: var(--surface2); color: var(--chalk); }
+        .btn-save { background: var(--rust); color: #fff; border-color: var(--rust); }
+        .btn-save:hover { background: var(--rust-dim); }
+
+        .lightbox { position: fixed; inset: 0; background: rgba(10,9,7,0.92); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; cursor: zoom-out; }
+        .lightbox-img { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; }
+
+        .footer-note { padding: 22px 20px 0 20px; font-size: 11.5px; color: var(--chalk-dim); line-height: 1.5; }
+
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+      `}</style>
+
+      <div className="header">
+        <div className="eyebrow">Push · Pull · Legs / 3 дня в неделю</div>
+        <div className="title">Программа тренировок</div>
+        <div className="subtitle">183 см · 86 кг · средний опыт · цель — рельеф и поддержание формы</div>
+      </div>
+
+      <div className="day-rack">
+        {Object.keys(DAY_META).map((d) => (
+          <div key={d} className={`day-plate ${day === d ? "day-plate--active" : ""}`} onClick={() => setDay(d)}>
+            <div className="day-plate-code">{DAY_META[d].code}</div>
+            <div className="day-plate-label">{DAY_META[d].label}</div>
+            <div className="day-plate-sub">{DAY_META[d].sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="list">
+        {exercises.map((ex, i) => (<ExerciseCard ex={ex} index={i} key={ex.id} />))}
+      </div>
+
+      <div className="footer-note">
+        Фото — из открытого датасета free-exercise-db, инструкции — из exercises-dataset. Стартовый вес — ориентир для роста 183 см / 86 кг / средний опыт тренировок, рассчитан по стандартным силовым нормативам для этого уровня. Это не точный вес лично под тебя — в первую неделю прощупай его: если последние 2 повтора в подходе даются совсем легко, в следующий раз добавь вес, если не получается выполнить нужное число повторов чисто — наоборот, убери. Нажми на фото, чтобы увеличить, переключатель «Старт/Финал» показывает обе фазы движения.
+      </div>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<WorkoutApp />);
+</script>
+</body>
+</html>
