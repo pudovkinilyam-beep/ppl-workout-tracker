@@ -52,9 +52,9 @@ window.PROGRAM = JSON.parse(PROGRAM_JSON);
 const PROGRAM = window.PROGRAM || {};
 
 const DAY_META = {
-  push: { label: "PUSH", sub: "Грудь · Плечи · Трицепс", code: "01" },
-  pull: { label: "PULL", sub: "Спина · Бицепс · Зад. дельты", code: "02" },
-  legs: { label: "LEGS", sub: "Ноги · Ягодицы · Кор", code: "03" },
+  push: { label: "PUSH", sub: "Грудь · Плечи · Трицепс", code: "01", ru: "Жим" },
+  pull: { label: "PULL", sub: "Спина · Бицепс · Зад. дельты", code: "02", ru: "Тяга" },
+  legs: { label: "LEGS", sub: "Ноги · Ягодицы · Кор", code: "03", ru: "Ноги" },
 };
 
 const TARGET_RU = {
@@ -530,8 +530,19 @@ function HistoryView() {
 
       <div className="hist-block-title">Календарь тренировок</div>
       <div className="calendars-grid">
-        <CalendarMonth date={currentMonth} sessions={sessions} />
-        <CalendarMonth date={prevMonth} sessions={sessions} />
+        {(() => {
+          const monthsToShow = [currentMonth, prevMonth].filter(m => {
+            const yr = m.getFullYear();
+            const mo = m.getMonth();
+            return sessions.some(s => {
+              const d = new Date(s.date + "T00:00:00");
+              return d.getFullYear() === yr && d.getMonth() === mo;
+            });
+          });
+          return monthsToShow.length ? monthsToShow.map((m, i) => (
+            <CalendarMonth key={i} date={m} sessions={sessions} />
+          )) : <CalendarMonth date={currentMonth} sessions={sessions} />;
+        })()}
       </div>
 
       <div className="hist-block-title">Все тренировки</div>
@@ -571,16 +582,17 @@ function WorkoutApp() {
         .title { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: 0.01em; text-transform: uppercase; }
         .subtitle { color: var(--chalk-dim); font-size: 13px; margin-top: 4px; }
 
-        .day-rack { display: flex; margin: 18px 20px 0 20px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
-        .day-plate { flex: 1; padding: 14px 6px; text-align: center; cursor: pointer; border-right: 1px solid var(--line); transition: background 0.15s ease; }
-        .day-plate:last-child { border-right: none; }
-        .day-plate--on { background: var(--surface2); }
-        .day-plate-name { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chalk-dim); }
-        .day-plate-sub { font-size: 12px; margin-top: 3px; color: var(--chalk); }
+        .day-rack { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 18px 20px 0 20px; }
+        .day-plate { padding: 12px 6px 10px; text-align: center; cursor: pointer; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: var(--chalk); -webkit-appearance: none; appearance: none; transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease; }
+        .day-plate:active { transform: scale(0.98); }
+        .day-plate--on { border-color: var(--rust); background: rgba(193,80,46,0.12); }
+        .day-plate-name { font-family: 'Oswald', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.08em; color: var(--chalk); }
+        .day-plate-sub { font-size: 11px; margin-top: 3px; color: var(--chalk-dim); }
+        .day-plate--on .day-plate-sub { color: var(--rust); }
 
-        .view-tabs { display: flex; margin: 16px 20px; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-        .view-tab { padding: 6px 12px; border: none; background: none; color: var(--chalk-dim); font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s ease; }
-        .view-tab--on { color: var(--chalk); border-bottom-color: var(--rust); }
+        .view-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 16px 20px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+        .view-tab { padding: 10px 12px; border: none; background: transparent; color: var(--chalk-dim); font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .view-tab--on { color: var(--chalk); background: var(--surface2); box-shadow: 0 1px 0 rgba(255,255,255,0.04); }
 
         .ex-list { padding: 0; margin: 0; }
         .ex-card { margin: 12px 20px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
@@ -708,7 +720,7 @@ function WorkoutApp() {
             onClick={() => { setDay(d); setMode("train"); }}
           >
             <div className="day-plate-name">{DAY_META[d].label}</div>
-            <div className="day-plate-sub">{DAY_META[d].code}</div>
+            <div className="day-plate-sub">{DAY_META[d].ru}</div>
           </button>
         ))}
       </div>
