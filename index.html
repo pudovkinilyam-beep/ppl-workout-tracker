@@ -63,6 +63,28 @@ const TARGET_RU = {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+/* id -> {...exercise, dayType} для быстрого поиска при построении истории */
+const EX_INDEX = {};
+Object.keys(PROGRAM).forEach((d) => {
+  PROGRAM[d].forEach((ex) => { EX_INDEX[ex.id] = { ...ex, dayType: d }; });
+});
+
+const RU_MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const RU_WEEKDAYS = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+
+function fmtDateRu(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return `${RU_WEEKDAYS[d.getDay()]}, ${d.getDate()} ${RU_MONTHS[d.getMonth()]}`;
+}
+
+/* понедельник недели, содержащей dateStr, в виде YYYY-MM-DD (ключ недели) */
+function weekKey(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const dow = (d.getDay() + 6) % 7; // 0 = понедельник
+  d.setDate(d.getDate() - dow);
+  return d.toISOString().slice(0, 10);
+}
+
 function fmtClock(s) {
   const m = Math.floor(s / 60).toString().padStart(2, "0");
   const r = Math.floor(s % 60).toString().padStart(2, "0");
@@ -159,7 +181,7 @@ function ExerciseCard({ ex, index }) {
     const history = existing && Array.isArray(existing.history) ? existing.history.filter(h => h.date !== todayKey()) : [];
     const completed = rows.filter(r => r.weight !== "" || r.reps !== "");
     if (completed.length) history.push({ date: todayKey(), rows: completed });
-    const trimmed = history.slice(-12);
+    const trimmed = history.slice(-60);
     await saveLog(ex.id, { date: todayKey(), rows, history: trimmed });
     setLastSession(trimmed.length ? trimmed[trimmed.length - 1] : null);
     setSaved(true);
@@ -277,9 +299,193 @@ function ExerciseCard({ ex, index }) {
   );
 }
 
+/* ====================== ИСТОРИЯ / ПРОГРЕСС ====================== */
+const DAY_ACCENT = { push: "var(--rust)", pull: "var(--olive)", legs: "#c99a4a" };
+
+function SessionCard({ date, dayType, entries, plannedTotal }) {
+  const [open, setOpen] = React.useState(false);
+  const totalSets = entries.reduce((s, e) => s + e.rows.length, 0);
+  const volume = entries.reduce(
+    (s, e) => s + e.rows.reduce((s2, r) => s2 + (parseFloat(r.weight) || 0) * (parseFloat(r.reps) || 0), 0),
+    0
+  );
+  const meta = DAY_META[dayType];
+
+  return (
+    <div className="sess-card">
+      <div className="sess-head" onClick={() => setOpen(!open)}>
+        <div className="sess-daydot" style={{ background: DAY_ACCENT[dayType] || "var(--chalk-dim)" }} />
+        <div className="sess-headtext">
+          <div className="sess-date">{fmtDateRu(date)}</div>
+          <div className="sess-sub">
+            {meta ? meta.label : "Тренировка"} · {entries.length} упр. · {totalSets}/{plannedTotal} сетов
+            {volume > 0 ? ` · ${Math.round(volume)} кг объём` : ""}
+          </div>
+        </div>
+        <div className={`chev ${open ? "chev--open" : ""}`}>▾</div>
+      </div>
+      {open && (
+        <div className="sess-body">
+          {entries.map((e) => (
+            <div className="sess-ex" key={e.exId}>
+              <div className="sess-ex-name">
+                {e.name}
+                {e.delta !== null && (
+                  <span className={`delta ${e.delta > 0 ? "delta--up" : e.delta < 0 ? "delta--down" : "delta--flat"}`}>
+                    {e.delta > 0 ? `▲ +${e.delta}кг` : e.delta < 0 ? `▼ ${e.delta}кг` : "= вес"}
+                  </span>
+                )}
+              </div>
+              <div className="sess-ex-sets">
+                {e.rows.map((r, i) => (
+                  <span key={i} className="last-chip">{r.weight || "—"}кг×{r.reps || "—"}</span>
+                ))}
+                <span className="sess-ex-frac">{e.rows.length}/{e.plannedSets}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeekChart({ buckets }) {
+  const max = Math.max(3, ...buckets.map((b) => b.count));
+  return (
+    <div className="week-chart">
+      {buckets.map((b, i) => (
+        <div className="week-bar-col" key={i}>
+          <div className="week-bar-track">
+            <div className="week-bar-fill" style={{ height: `${(b.count / max) * 100}%` }} />
+          </div>
+          <div className="week-bar-count">{b.count}</div>
+          <div className="week-bar-label">{b.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HistoryView() {
+  const [loading, setLoading] = React.useState(true);
+  const [sessions, setSessions] = React.useState([]);
+  const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [] });
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const ids = Object.keys(EX_INDEX);
+      const logs = await Promise.all(ids.map((id) => loadLog(id)));
+
+      // плоский список всех сохранённых сетов по всем упражнениям
+      const flat = [];
+      ids.forEach((id, i) => {
+        const log = logs[i];
+        if (!log || !Array.isArray(log.history)) return;
+        log.history.forEach((h) => {
+          if (h.rows && h.rows.length) flat.push({ exId: id, date: h.date, rows: h.rows });
+        });
+      });
+
+      // дельта веса относительно предыдущей сессии этого же упражнения
+      const byEx = {};
+      flat.forEach((r) => { (byEx[r.exId] = byEx[r.exId] || []).push(r); });
+      Object.values(byEx).forEach((arr) => {
+        arr.sort((a, b) => (a.date < b.date ? -1 : 1));
+        arr.forEach((r, i) => {
+          const avg = (rows) => {
+            const vals = rows.map((x) => parseFloat(x.weight)).filter((v) => !isNaN(v));
+            return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+          };
+          const cur = avg(r.rows);
+          const prev = i > 0 ? avg(arr[i - 1].rows) : null;
+          r.delta = cur !== null && prev !== null ? Math.round((cur - prev) * 10) / 10 : null;
+        });
+      });
+
+      // группировка по дате
+      const byDate = {};
+      flat.forEach((r) => {
+        const meta = EX_INDEX[r.exId];
+        (byDate[r.date] = byDate[r.date] || []).push({
+          exId: r.exId, name: meta.name, dayType: meta.dayType,
+          plannedSets: parseInt(meta.sets, 10), rows: r.rows, delta: r.delta ?? null,
+        });
+      });
+
+      const dates = Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1));
+      const sessionsBuilt = dates.map((date) => {
+        const entries = byDate[date];
+        const counts = {};
+        entries.forEach((e) => { counts[e.dayType] = (counts[e.dayType] || 0) + 1; });
+        const dayType = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+        const plannedTotal = entries.reduce((s, e) => s + e.plannedSets, 0);
+        return { date, dayType, entries, plannedTotal };
+      });
+
+      // недельный график: последние 8 недель, считаем уникальные тренировочные дни
+      const today = new Date();
+      const wBuckets = [];
+      for (let i = 7; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i * 7);
+        const wk = weekKey(d.toISOString().slice(0, 10));
+        const count = dates.filter((dt) => weekKey(dt) === wk).length;
+        wBuckets.push({ label: `${new Date(wk).getDate()}.${new Date(wk).getMonth() + 1}`, count, wk });
+      }
+      const thisWeek = dates.filter((dt) => weekKey(dt) === weekKey(todayKey())).length;
+
+      if (mounted) {
+        setSessions(sessionsBuilt);
+        setStats({ total: dates.length, thisWeek, buckets: wBuckets });
+        setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) return <div className="hist-empty">Загружаю историю…</div>;
+
+  if (!sessions.length) {
+    return (
+      <div className="hist-empty">
+        Пока нет сохранённых тренировок.<br />
+        Заполни подходы на вкладке «Тренировка» и нажми «Сохранить подходы» — здесь появится прогресс по дням.
+      </div>
+    );
+  }
+
+  return (
+    <div className="hist">
+      <div className="hist-stats">
+        <div className="stat-card">
+          <div className="stat-value">{stats.total}</div>
+          <div className="stat-label">тренировок всего</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{stats.thisWeek}/3</div>
+          <div className="stat-label">на этой неделе</div>
+        </div>
+      </div>
+
+      <div className="hist-block-title">По неделям</div>
+      <WeekChart buckets={stats.buckets} />
+
+      <div className="hist-block-title">Все тренировки</div>
+      <div className="sess-list">
+        {sessions.map((s) => (
+          <SessionCard key={s.date} date={s.date} dayType={s.dayType} entries={s.entries} plannedTotal={s.plannedTotal} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ====================== APP ====================== */
 function WorkoutApp() {
   const [day, setDay] = React.useState("push");
+  const [mode, setMode] = React.useState("train");
   const exercises = PROGRAM[day];
 
   return (
@@ -314,6 +520,44 @@ function WorkoutApp() {
         .day-plate-label { font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 16px; margin-top: 2px; letter-spacing: 0.04em; }
         .day-plate-sub { font-size: 10px; color: var(--chalk-dim); margin-top: 3px; }
         .day-plate--active .day-plate-sub { color: rgba(255,255,255,0.85); }
+
+        .view-tabs { display: flex; margin: 18px 20px 0 20px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .view-tab { flex: 1; background: var(--surface); color: var(--chalk-dim); border: none; border-right: 1px solid var(--line); font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; padding: 12px 6px; cursor: pointer; }
+        .view-tab:last-child { border-right: none; }
+        .view-tab--active { background: var(--rust); color: #fff; }
+
+        .hist { padding: 18px 20px 0 20px; }
+        .hist-empty { padding: 40px 20px; text-align: center; color: var(--chalk-dim); font-size: 13px; line-height: 1.6; }
+        .hist-stats { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat-card { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; text-align: center; }
+        .stat-value { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 24px; color: var(--rust); }
+        .stat-label { font-size: 11px; color: var(--chalk-dim); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+        .hist-block-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chalk-dim); margin: 4px 0 10px 0; }
+
+        .week-chart { display: flex; gap: 6px; align-items: flex-end; height: 110px; margin-bottom: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 10px 8px 10px; }
+        .week-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+        .week-bar-track { flex: 1; width: 60%; display: flex; align-items: flex-end; }
+        .week-bar-fill { width: 100%; background: var(--rust); border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.2s ease; }
+        .week-bar-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--chalk-dim); margin-top: 4px; }
+        .week-bar-label { font-size: 9px; color: var(--chalk-dim); margin-top: 1px; }
+
+        .sess-list { display: flex; flex-direction: column; gap: 10px; }
+        .sess-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .sess-head { display: flex; align-items: center; gap: 12px; padding: 13px 14px; cursor: pointer; }
+        .sess-daydot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .sess-headtext { flex: 1; min-width: 0; }
+        .sess-date { font-family: 'Oswald', sans-serif; font-weight: 500; font-size: 14px; text-transform: capitalize; }
+        .sess-sub { font-size: 11.5px; color: var(--chalk-dim); margin-top: 2px; }
+        .sess-body { padding: 0 14px 14px 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+        .sess-ex { padding-top: 12px; }
+        .sess-ex-name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sess-ex-sets { margin-top: 5px; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+        .sess-ex-frac { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--chalk-dim); margin-left: 6px; }
+        .delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; }
+        .delta--up { color: var(--olive); background: rgba(124,148,115,0.12); }
+        .delta--down { color: var(--rust); background: rgba(193,80,46,0.12); }
+        .delta--flat { color: var(--chalk-dim); background: rgba(163,154,137,0.1); }
 
         .list { padding: 18px 20px 0 20px; display: flex; flex-direction: column; gap: 10px; }
         .ex-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; transition: border-color 0.15s ease; position: relative; }
@@ -381,23 +625,38 @@ function WorkoutApp() {
         <div className="subtitle">183 см · 86 кг · средний опыт · цель — рельеф и поддержание формы</div>
       </div>
 
-      <div className="day-rack">
-        {Object.keys(DAY_META).map((d) => (
-          <div key={d} className={`day-plate ${day === d ? "day-plate--active" : ""}`} onClick={() => setDay(d)}>
-            <div className="day-plate-code">{DAY_META[d].code}</div>
-            <div className="day-plate-label">{DAY_META[d].label}</div>
-            <div className="day-plate-sub">{DAY_META[d].sub}</div>
+      <div className="view-tabs">
+        <button className={`view-tab ${mode === "train" ? "view-tab--active" : ""}`} onClick={() => setMode("train")}>
+          Тренировка
+        </button>
+        <button className={`view-tab ${mode === "history" ? "view-tab--active" : ""}`} onClick={() => setMode("history")}>
+          История
+        </button>
+      </div>
+
+      {mode === "train" && (
+        <React.Fragment>
+          <div className="day-rack">
+            {Object.keys(DAY_META).map((d) => (
+              <div key={d} className={`day-plate ${day === d ? "day-plate--active" : ""}`} onClick={() => setDay(d)}>
+                <div className="day-plate-code">{DAY_META[d].code}</div>
+                <div className="day-plate-label">{DAY_META[d].label}</div>
+                <div className="day-plate-sub">{DAY_META[d].sub}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="list">
-        {exercises.map((ex, i) => (<ExerciseCard ex={ex} index={i} key={ex.id} />))}
-      </div>
+          <div className="list">
+            {exercises.map((ex, i) => (<ExerciseCard ex={ex} index={i} key={ex.id} />))}
+          </div>
 
-      <div className="footer-note">
-        Фото — из открытого датасета free-exercise-db, инструкции — из exercises-dataset. Стартовый вес — ориентир для роста 183 см / 86 кг / средний опыт тренировок, рассчитан по стандартным силовым нормативам для этого уровня. Это не точный вес лично под тебя — в первую неделю прощупай его: если последние 2 повтора в подходе даются совсем легко, в следующий раз добавь вес, если не получается выполнить нужное число повторов чисто — наоборот, убери. Нажми на фото, чтобы увеличить, переключатель «Старт/Финал» показывает обе фазы движения.
-      </div>
+          <div className="footer-note">
+            Фото — из открытого датасета free-exercise-db, инструкции — из exercises-dataset. Стартовый вес — ориентир для роста 183 см / 86 кг / средний опыт тренировок, рассчитан по стандартным силовым нормативам для этого уровня. Это не точный вес лично под тебя — в первую неделю прощупай его: если последние 2 повтора в подходе даются совсем легко, в следующий раз добавь вес, если не получается выполнить нужное число повторов чисто — наоборот, убери. Нажми на фото, чтобы увеличить, переключатель «Старт/Финал» показывает обе фазы движения.
+          </div>
+        </React.Fragment>
+      )}
+
+      {mode === "history" && <HistoryView />}
     </div>
   );
 }
