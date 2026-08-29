@@ -484,7 +484,7 @@ function WeekChart({ buckets }) {
   );
 }
 
-function CalendarMonth({ date, sessions }) {
+function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
   const [selectedDate, setSelectedDate] = React.useState(null);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -494,6 +494,11 @@ function CalendarMonth({ date, sessions }) {
   const startingDayOfWeek = firstDay.getDay();
 
   const trainingDates = new Set(sessions.map(s => s.date));
+  // Сколько тренировок в этом конкретном месяце
+  const monthCount = sessions.filter(s => {
+    const d = new Date(s.date + "T00:00:00");
+    return d.getFullYear() === year && d.getMonth() === month;
+  }).length;
 
   const days = [];
   for (let i = 0; i < startingDayOfWeek; i++) days.push(null);
@@ -501,9 +506,29 @@ function CalendarMonth({ date, sessions }) {
 
   const selectedSession = selectedDate ? sessions.find(s => s.date === selectedDate) : null;
 
+  // Сбрасываем выделенный день при смене месяца
+  React.useEffect(() => { setSelectedDate(null); }, [year, month]);
+
   return (
     <div className="calendar-month">
-      <div className="calendar-header">{RU_MONTHS[month]} {year}</div>
+      <div className="calendar-nav">
+        <button
+          className="cal-nav-btn"
+          onClick={onPrev}
+          disabled={!canPrev}
+          aria-label="Предыдущий месяц"
+        >‹</button>
+        <div className="calendar-header">
+          {RU_MONTHS[month]} {year}
+          {monthCount > 0 && <span className="cal-count">{monthCount} трен.</span>}
+        </div>
+        <button
+          className="cal-nav-btn"
+          onClick={onNext}
+          disabled={!canNext}
+          aria-label="Следующий месяц"
+        >›</button>
+      </div>
       <div className="calendar-weekdays">
         {RU_WEEKDAYS.map(d => <div key={d} className="weekday">{d}</div>)}
       </div>
@@ -549,6 +574,9 @@ function HistoryView() {
   const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [], progress: { up: 0, down: 0, flat: 0 } });
   const [showAllSessions, setShowAllSessions] = React.useState(false);
   const SESSIONS_PREVIEW = 8;
+  // Календарь: показываемый месяц (year-month)
+  const [calYear, setCalYear] = React.useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = React.useState(() => new Date().getMonth());
 
   React.useEffect(() => {
     let mounted = true;
@@ -699,10 +727,6 @@ function HistoryView() {
     }
   };
 
-  const today = new Date();
-  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-
   return (
     <div className="hist">
       <div className="hist-stats">
@@ -747,21 +771,37 @@ function HistoryView() {
       <WeekChart buckets={stats.buckets} />
 
       <div className="hist-block-title">Календарь тренировок</div>
-      <div className="calendars-grid">
-        {(() => {
-          const monthsToShow = [currentMonth, prevMonth].filter(m => {
-            const yr = m.getFullYear();
-            const mo = m.getMonth();
-            return sessions.some(s => {
-              const d = new Date(s.date + "T00:00:00");
-              return d.getFullYear() === yr && d.getMonth() === mo;
-            });
-          });
-          return monthsToShow.length ? monthsToShow.map((m, i) => (
-            <CalendarMonth key={i} date={m} sessions={sessions} />
-          )) : <CalendarMonth date={currentMonth} sessions={sessions} />;
-        })()}
-      </div>
+      {(() => {
+        const calDate = new Date(calYear, calMonth, 1);
+        const todayDate = new Date();
+        const isCurrentOrFuture = calYear > todayDate.getFullYear() || (calYear === todayDate.getFullYear() && calMonth >= todayDate.getMonth());
+        // Ограничим "назад" — не листать дальше первой сохранённой тренировки
+        let earliestYear = calYear, earliestMonth = calMonth;
+        if (sessions.length) {
+          const earliestDate = new Date(sessions[sessions.length - 1].date + "T00:00:00");
+          earliestYear = earliestDate.getFullYear();
+          earliestMonth = earliestDate.getMonth();
+        }
+        const atEarliest = calYear < earliestYear || (calYear === earliestYear && calMonth <= earliestMonth);
+        const goPrev = () => {
+          if (calMonth === 0) { setCalYear(calYear - 1); setCalMonth(11); }
+          else setCalMonth(calMonth - 1);
+        };
+        const goNext = () => {
+          if (calMonth === 11) { setCalYear(calYear + 1); setCalMonth(0); }
+          else setCalMonth(calMonth + 1);
+        };
+        return (
+          <CalendarMonth
+            date={calDate}
+            sessions={sessions}
+            onPrev={goPrev}
+            onNext={goNext}
+            canPrev={!atEarliest}
+            canNext={!isCurrentOrFuture}
+          />
+        );
+      })()}
 
       <div className="hist-block-title">Все тренировки</div>
       <div className="sess-list">
@@ -1107,11 +1147,14 @@ function WorkoutApp() {
         .week-bar-count { font-size: 11px; font-weight: 600; }
         .week-bar-label { font-size: 10px; color: var(--chalk-dim); }
 
-        .calendars-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        @media (max-width: 768px) { .calendars-grid { grid-template-columns: 1fr; } }
-
-        .calendar-month { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-        .calendar-header { font-size: 14px; font-weight: 600; margin-bottom: 12px; text-align: center; }
+        .calendar-month { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 20px; }
+        .calendar-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .cal-nav-btn { width: 36px; height: 36px; border-radius: 8px; background: transparent; border: 1px solid var(--line); color: var(--chalk); font-size: 20px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .cal-nav-btn:hover:not(:disabled) { border-color: var(--rust); color: var(--rust); }
+        .cal-nav-btn:active:not(:disabled) { transform: scale(0.92); }
+        .cal-nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+        .calendar-header { font-size: 14px; font-weight: 600; text-align: center; flex: 1; text-transform: capitalize; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .cal-count { font-size: 11px; font-weight: 500; color: var(--rust); background: var(--rust-tint); padding: 2px 8px; border-radius: 999px; }
         .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px; }
         .weekday { font-size: 11px; color: var(--chalk-dim); text-align: center; font-weight: 600; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
