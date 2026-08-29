@@ -9,9 +9,19 @@
 <title>Программа тренировок — Push / Pull / Legs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <style>
-  html, body { margin: 0; padding: 0; background: #15130f; }
+  html, body { margin: 0; padding: 0; background: #15130f; transition: background 0.2s ease; }
+  html[data-theme="light"], html[data-theme="light"] body { background: #f5f1e8; }
   #root { min-height: 100vh; }
 </style>
+<script>
+  // Применяем тему ДО загрузки React, чтобы не было мигания
+  try {
+    var savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+  } catch (e) {}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.0/babel.min.js"></script>
@@ -42,14 +52,20 @@
 </script>
 
 <script>
-const PROGRAM_JSON = `{"push":[{"id":"0025","name":"Жим штанги лёжа","nameEn":"barbell bench press","target":"pectorals","equipment":"barbell","instructions":"Лягте на скамью, поставьте ступни на землю и прижмите спину к скамье. Возьмите штангу хватом сверху на расстоянии чуть шире плеч. Снимите штангу со стойки и держите ее прямо над грудью, полностью вытянув руки. Медленно опустите штангу к груди, держа локти прижатыми. Сделайте паузу на мгновение, когда штанга коснется вашей груди. Верните штангу в исходное положение, вытянув руки. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"],"sourceName":"Barbell Bench Press - Medium Grip","recMin":60,"recMax":75,"recNote":"от штанги весом тела начни с разминки, рабочие 60-75 кг на 8-10 повторов"},{"id":"a001","name":"Жим Арнольда","nameEn":"arnold dumbbell press","target":"delts","equipment":"dumbbell","instructions":"Сядьте на скамью, возьмите гантели, ладони обращены к вам, локти согнуты, гантели у плеч. Одновременно разворачивайте кисти наружу и выжимайте гантели вверх, пока руки полностью не выпрямятся. Ладони в верхней точке смотрят вперёд. Медленно опустите гантели, разворачивая кисти обратно, в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/1.jpg"],"sourceName":"Arnold Dumbbell Press","recMin":12,"recMax":18,"recNote":"вес одной гантели"},{"id":"a002","name":"Армейский жим стоя","nameEn":"standing military press","target":"delts","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч. Возьмите штангу хватом чуть шире плеч, поднимите её на грудь. Напрягите корпус, ягодицы и ноги. Выжмите штангу вертикально вверх над головой, полностью выпрямив руки. Немного отклоните голову вперёд в верхней точке, чтобы гриф прошёл над лицом. Медленно опустите штангу обратно на грудь. Повторите необходимое количество повторений.","sets":"4","reps":"6-8","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/1.jpg"],"sourceName":"Standing Military Press","recMin":35,"recMax":45,"recNote":"рабочий вес штанги (включая гриф)"},{"id":"a003","name":"Face Pull на блоке","nameEn":"face pull","target":"delts","equipment":"cable","instructions":"Прикрепите канатную рукоять к верхнему блоку. Встаньте лицом к тренажёру, возьмитесь за концы каната сверху ладонями вниз. Отойдите на шаг, руки полностью вытянуты. Потяните канат на себя к уровню лица, разводя руки в стороны так, чтобы локти были высоко и на одной линии с плечами. Сведите лопатки в верхней точке, задержитесь на секунду. Медленно вернитесь в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/1.jpg"],"sourceName":"Face Pull","recMin":15,"recMax":25,"recNote":"вес стека; вес меньше — техника важнее"},{"id":"a004","name":"Жим гантелей лёжа","nameEn":"dumbbell bench press","target":"pectorals","equipment":"dumbbell","instructions":"Лягте на скамью, поставьте ноги на землю и плотно прижмите спину к скамье. Возьмите по гантели в каждую руку ладонями вперёд и поднимите их на высоту груди, локти согнуты под 90 градусов. Выжмите гантели вверх до полного выпрямления рук, сближая их в верхней точке. Медленно опустите гантели по бокам груди, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/1.jpg"],"sourceName":"Dumbbell Bench Press","recMin":24,"recMax":32,"recNote":"вес одной гантели"},{"id":"0060","name":"Французский жим штанги лёжа","nameEn":"barbell lying triceps extension skull crusher","target":"triceps","equipment":"barbell","instructions":"Лягте на скамью, положив ноги на землю, а голову на край скамьи. Возьмите штангу хватом сверху, руки на ширине плеч, вытяните руки вверх над грудью. Удерживая плечи неподвижно, медленно опустите штангу ко лбу, сгибая локти. Сделайте паузу на мгновение, когда штанга окажется прямо над лбом, затем вытяните руки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/1.jpg"],"sourceName":"EZ-Bar Skullcrusher","recMin":20,"recMax":30,"recNote":"суммарный вес штанги/EZ-грифа без учёта веса самого грифа"},{"id":"0241","name":"Разгибание рук на блоке (трицепс)","nameEn":"cable triceps pushdown (v-bar)","target":"triceps","equipment":"cable","instructions":"Прикрепите V-образную насадку к тросовому станку на самой высокой скорости. Встаньте лицом к канатному тренажеру, поставив ноги на ширине плеч. Возьмитесь за V-образную перекладину хватом сверху, ладонями вниз, руки на ширине плеч. На протяжении всего упражнения держите локти близко к бокам, а плечи неподвижными. Задействуйте трицепсы и на выдохе опускайте V-образную планку вниз, пока руки полностью не выпрямятся. Задержитесь на мгновение в нижней части движения, напрягая трицепсы. На вдохе медленно возвращайте V-образную планку в исходное положение, сохраняя контроль. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/1.jpg"],"sourceName":"Triceps Pushdown - V-Bar Attachment","recMin":25,"recMax":35,"recNote":"вес стека"}],"pull":[{"id":"1429","name":"Подтягивания широким хватом","nameEn":"wide grip pull-up","target":"lats","equipment":"body weight","instructions":"Повисните на перекладине, повернув ладонями от себя и расставив руки на ширине плеч. Напрягите корпус и сведите лопатки вместе. Подтягивайте тело к перекладине, пока подбородок не окажется над перекладиной. Опустите тело обратно в исходное положение, контролируя его. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"],"sourceName":"Pullups","recMin":0,"recMax":0,"recNote":"свой вес тела; если 8-10 чистых подтягиваний пока тяжело — используй тренажёр гравитрон (компенсация 15-25 кг)"},{"id":"0027","name":"Тяга штанги в наклоне","nameEn":"barbell bent over row","target":"upper back","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч и слегка согнуты в коленях. Наклонитесь вперед в бедрах, сохраняя спину прямой и грудь вверх. Возьмите штангу хватом сверху, руки на расстоянии чуть шире плеч. Потяните штангу к нижней части груди, сводя лопатки и напрягая мышцы спины. Задержитесь на мгновение в верхней точке, затем медленно опустите штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"],"sourceName":"Bent Over Barbell Row","recMin":50,"recMax":65,"recNote":"рабочий вес штанги"},{"id":"a005","name":"Тяга Т-грифа","nameEn":"t-bar row with handle","target":"upper back","equipment":"barbell","instructions":"Встаньте над Т-грифом, поставьте ноги по бокам от грифа. Наклонитесь вперёд с прямой спиной, слегка согните колени. Возьмитесь за рукоять, руки полностью вытянуты. Потяните гриф вверх к нижней части груди, сводя лопатки и напрягая спину. Задержитесь на мгновение в верхней точке, затем медленно опустите гриф в исходное положение. Держите корпус неподвижным на протяжении движения. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/1.jpg"],"sourceName":"T-Bar Row with Handle","recMin":30,"recMax":45,"recNote":"вес блинов на грифе"},{"id":"a006","name":"Тяга верхнего блока широким хватом","nameEn":"wide-grip lat pulldown","target":"lats","equipment":"cable","instructions":"Сядьте в тренажёр, закрепите колени валиками. Возьмитесь за перекладину широким хватом, ладони от себя. Слегка отклонитесь назад, грудь вверх. Потяните перекладину вниз к верхней части груди, сводя лопатки и напрягая широчайшие. Задержитесь на мгновение в нижней точке. Медленно верните перекладину вверх, полностью выпрямив руки, контролируя вес. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/1.jpg"],"sourceName":"Wide-Grip Lat Pulldown","recMin":45,"recMax":60,"recNote":"вес стека"},{"id":"a007","name":"Разведение на блоках (задние дельты)","nameEn":"cable rear delt fly","target":"delts","equipment":"cable","instructions":"Встаньте между двух блочных стоек, установите рукояти на уровне плеч. Возьмите правой рукой левый трос, левой — правый (руки скрещены). Сохраняя небольшой изгиб в локтях, разведите руки в стороны и назад до уровня плеч. Сожмите лопатки в конечной точке. Медленно верните руки в исходное скрещенное положение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/1.jpg"],"sourceName":"Cable Rear Delt Fly","recMin":8,"recMax":14,"recNote":"вес на каждом блоке"},{"id":"0031","name":"Подъём штанги на бицепс стоя","nameEn":"barbell curl","target":"biceps","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч, возьмите штангу обратным хватом ладонями вперед. Держите локти близко к туловищу и выдыхайте, сгибая штангу и одновременно сокращая бицепсы. Продолжайте поднимать штангу до тех пор, пока ваши бицепсы полностью не сократятся и штанга не окажется на уровне плеч. Задержитесь в сокращенном положении на короткую паузу, одновременно сжимая бицепсы. На вдохе начните медленно опускать штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/1.jpg"],"sourceName":"Barbell Curl","recMin":25,"recMax":35,"recNote":"рабочий вес штанги"},{"id":"a008","name":"Сгибание рук на скамье Скотта","nameEn":"preacher curl","target":"biceps","equipment":"barbell","instructions":"Сядьте за скамью Скотта, прижмите плечи к наклонной подушке. Возьмите штангу или EZ-гриф обратным хватом, руки полностью выпрямлены. Согните руки, поднимая гриф к плечам, максимально напрягая бицепс в верхней точке. Задержитесь на мгновение. Медленно опустите гриф в исходное положение, контролируя вес до полного растяжения бицепса. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/1.jpg"],"sourceName":"Preacher Curl","recMin":15,"recMax":25,"recNote":"рабочий вес штанги/EZ-грифа"}],"legs":[{"id":"0043","name":"Приседания со штангой","nameEn":"barbell full squat","target":"glutes","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, носки слегка развернуты наружу. Держите штангу на верхней части спины, опираясь на трапеции или задние дельты. Напрягите корпус и держите грудь поднятой, когда начинаете опускать тело вниз. Согните колени и бедра, отводя бедра назад и вниз, как будто вы сидите на стуле. Опускайтесь до тех пор, пока бедра не станут параллельны земле или немного ниже. Держите колени на одной линии с пальцами ног, а вес тела перенесите на пятки. Протолкните пятки, чтобы встать обратно, выпрямляя бедра и колени. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":150,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/1.jpg"],"sourceName":"Barbell Squat","recMin":70,"recMax":90,"recNote":"рабочий вес штанги (без учёта веса грифа уже включён)"},{"id":"0085","name":"Румынская тяга со штангой","nameEn":"barbell romanian deadlift","target":"glutes","equipment":"barbell","instructions":"Встаньте, поставив ноги на ширине плеч, носки ног направлены вперед. Возьмите штангу хватом сверху, руки чуть шире плеч. Согните бедра, сохраняя спину прямой и слегка согнутыми в коленях. Опустите штангу к земле, держа ее близко к телу. Почувствуйте растяжение подколенных сухожилий, когда опускаете штангу. Как только вы почувствуете растяжение подколенных сухожилий, выдвиньте бедра вперед и встаньте прямо. Напрягите ягодицы в верхней точке движения. Опустите штангу обратно в исходное положение и повторите желаемое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/1.jpg"],"sourceName":"Romanian Deadlift","recMin":70,"recMax":90,"recNote":"рабочий вес штанги"},{"id":"2287","name":"Жим ногами в тренажёре","nameEn":"lever alternate leg press","target":"quads","equipment":"leverage machine","instructions":"Отрегулируйте сиденье и платформу для ног рычажной машины в желаемое положение. Сядьте на тренажер, прислонившись спиной к спинке и поставив ноги на платформу для ног. Положите руки на ручки или по бокам машины для устойчивости. Упритесь одной ногой в платформу для ног, вытягивая ногу до тех пор, пока она не станет почти полностью прямой. Сделайте паузу на мгновение, затем медленно согните ногу и вернитесь в исходное положение. Повторите с другой ногой. Продолжайте чередовать ноги желаемое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"],"sourceName":"Leg Press","recMin":140,"recMax":180,"recNote":"суммарный вес на платформе тренажёра"},{"id":"a009","name":"Болгарский сплит-присед","nameEn":"split squat with dumbbells","target":"quads","equipment":"dumbbell","instructions":"Встаньте спиной к скамье, держите гантели в руках. Поставьте одну ногу носком на скамью позади себя, вторая — впереди в шаге. Опустите тело вниз, сгибая переднюю ногу до параллели бедра с полом. Держите корпус вертикально, колено передней ноги не выходит за носок. Оттолкнитесь пяткой передней ноги, чтобы вернуться в исходное положение. Выполните все повторения на одну ногу, затем поменяйте сторону.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/1.jpg"],"sourceName":"Split Squat with Dumbbells","recMin":10,"recMax":16,"recNote":"вес одной гантели; на каждую ногу отдельно"},{"id":"a010","name":"Разгибание ног в тренажёре","nameEn":"leg extensions","target":"quads","equipment":"machine","instructions":"Сядьте в тренажёр, прижмите спину к спинке. Поместите ноги под валик так, чтобы он касался щиколоток. Возьмитесь за ручки по бокам. Разогните ноги в коленях, поднимая валик до полного выпрямления. Максимально напрягите квадрицепс в верхней точке, задержитесь на мгновение. Медленно опустите валик вниз, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/1.jpg"],"sourceName":"Leg Extensions","recMin":30,"recMax":45,"recNote":"вес стека"},{"id":"1372","name":"Подъём на носки стоя со штангой","nameEn":"barbell standing calf raise","target":"calves","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, положите штангу на верхнюю часть спины. Поднимите пятки от земли как можно выше, используя только пальцы ног. Задержитесь на мгновение в верхней точке, затем медленно опустите пятки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"],"sourceName":"Standing Barbell Calf Raise","recMin":40,"recMax":60,"recNote":"доп. вес сверх штанги"},{"id":"a011","name":"Планка на локтях","nameEn":"plank","target":"abs","equipment":"body only","instructions":"Примите положение упор лёжа на локтях: локти под плечами, предплечья на полу, ноги на носках. Тело от макушки до пяток образует прямую линию. Напрягите пресс, ягодицы, квадрицепсы. Не прогибайтесь в пояснице и не поднимайте таз. Дышите ровно. Удерживайте позицию заявленное количество секунд. Если тяжело — начните с 30 секунд.","sets":"3","reps":"60с","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/1.jpg"],"sourceName":"Plank","recMin":0,"recMax":0,"recNote":"вес собственного тела; цель — 60 секунд в подходе"}]}`
-
-window.PROGRAM = JSON.parse(PROGRAM_JSON);
+const PROGRAMS_JSON = `{"august":{"push":[{"id":"0025","name":"Жим штанги лёжа","nameEn":"barbell bench press","target":"pectorals","equipment":"barbell","instructions":"Лягте на скамью, поставьте ступни на землю и прижмите спину к скамье. Возьмите штангу хватом сверху на расстоянии чуть шире плеч. Снимите штангу со стойки и держите ее прямо над грудью, полностью вытянув руки. Медленно опустите штангу к груди, держа локти прижатыми. Сделайте паузу на мгновение, когда штанга коснется вашей груди. Верните штангу в исходное положение, вытянув руки. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"],"sourceName":"Barbell Bench Press - Medium Grip","recMin":60,"recMax":75,"recNote":"от штанги весом тела начни с разминки, рабочие 60-75 кг на 8-10 повторов"},{"id":"a001","name":"Жим Арнольда","nameEn":"arnold dumbbell press","target":"delts","equipment":"dumbbell","instructions":"Сядьте на скамью, возьмите гантели, ладони обращены к вам, локти согнуты, гантели у плеч. Одновременно разворачивайте кисти наружу и выжимайте гантели вверх, пока руки полностью не выпрямятся. Ладони в верхней точке смотрят вперёд. Медленно опустите гантели, разворачивая кисти обратно, в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/1.jpg"],"sourceName":"Arnold Dumbbell Press","recMin":12,"recMax":18,"recNote":"вес одной гантели"},{"id":"a002","name":"Армейский жим стоя","nameEn":"standing military press","target":"delts","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч. Возьмите штангу хватом чуть шире плеч, поднимите её на грудь. Напрягите корпус, ягодицы и ноги. Выжмите штангу вертикально вверх над головой, полностью выпрямив руки. Немного отклоните голову вперёд в верхней точке, чтобы гриф прошёл над лицом. Медленно опустите штангу обратно на грудь. Повторите необходимое количество повторений.","sets":"4","reps":"6-8","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/1.jpg"],"sourceName":"Standing Military Press","recMin":35,"recMax":45,"recNote":"рабочий вес штанги (включая гриф)"},{"id":"a003","name":"Face Pull на блоке","nameEn":"face pull","target":"delts","equipment":"cable","instructions":"Прикрепите канатную рукоять к верхнему блоку. Встаньте лицом к тренажёру, возьмитесь за концы каната сверху ладонями вниз. Отойдите на шаг, руки полностью вытянуты. Потяните канат на себя к уровню лица, разводя руки в стороны так, чтобы локти были высоко и на одной линии с плечами. Сведите лопатки в верхней точке, задержитесь на секунду. Медленно вернитесь в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/1.jpg"],"sourceName":"Face Pull","recMin":15,"recMax":25,"recNote":"вес стека; вес меньше — техника важнее"},{"id":"a004","name":"Жим гантелей лёжа","nameEn":"dumbbell bench press","target":"pectorals","equipment":"dumbbell","instructions":"Лягте на скамью, поставьте ноги на землю и плотно прижмите спину к скамье. Возьмите по гантели в каждую руку ладонями вперёд и поднимите их на высоту груди, локти согнуты под 90 градусов. Выжмите гантели вверх до полного выпрямления рук, сближая их в верхней точке. Медленно опустите гантели по бокам груди, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/1.jpg"],"sourceName":"Dumbbell Bench Press","recMin":24,"recMax":32,"recNote":"вес одной гантели"},{"id":"0060","name":"Французский жим штанги лёжа","nameEn":"barbell lying triceps extension skull crusher","target":"triceps","equipment":"barbell","instructions":"Лягте на скамью, положив ноги на землю, а голову на край скамьи. Возьмите штангу хватом сверху, руки на ширине плеч, вытяните руки вверх над грудью. Удерживая плечи неподвижно, медленно опустите штангу ко лбу, сгибая локти. Сделайте паузу на мгновение, когда штанга окажется прямо над лбом, затем вытяните руки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/1.jpg"],"sourceName":"EZ-Bar Skullcrusher","recMin":20,"recMax":30,"recNote":"суммарный вес штанги/EZ-грифа без учёта веса самого грифа"},{"id":"0241","name":"Разгибание рук на блоке (трицепс)","nameEn":"cable triceps pushdown (v-bar)","target":"triceps","equipment":"cable","instructions":"Прикрепите V-образную насадку к тросовому станку на самой высокой скорости. Встаньте лицом к канатному тренажеру, поставив ноги на ширине плеч. Возьмитесь за V-образную перекладину хватом сверху, ладонями вниз, руки на ширине плеч. На протяжении всего упражнения держите локти близко к бокам, а плечи неподвижными. Задействуйте трицепсы и на выдохе опускайте V-образную планку вниз, пока руки полностью не выпрямятся. Задержитесь на мгновение в нижней части движения, напрягая трицепсы. На вдохе медленно возвращайте V-образную планку в исходное положение, сохраняя контроль. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/1.jpg"],"sourceName":"Triceps Pushdown - V-Bar Attachment","recMin":25,"recMax":35,"recNote":"вес стека"}],"pull":[{"id":"1429","name":"Подтягивания широким хватом","nameEn":"wide grip pull-up","target":"lats","equipment":"body weight","instructions":"Повисните на перекладине, повернув ладонями от себя и расставив руки на ширине плеч. Напрягите корпус и сведите лопатки вместе. Подтягивайте тело к перекладине, пока подбородок не окажется над перекладиной. Опустите тело обратно в исходное положение, контролируя его. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"],"sourceName":"Pullups","recMin":0,"recMax":0,"recNote":"свой вес тела; если 8-10 чистых подтягиваний пока тяжело — используй тренажёр гравитрон (компенсация 15-25 кг)"},{"id":"0027","name":"Тяга штанги в наклоне","nameEn":"barbell bent over row","target":"upper back","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч и слегка согнуты в коленях. Наклонитесь вперед в бедрах, сохраняя спину прямой и грудь вверх. Возьмите штангу хватом сверху, руки на расстоянии чуть шире плеч. Потяните штангу к нижней части груди, сводя лопатки и напрягая мышцы спины. Задержитесь на мгновение в верхней точке, затем медленно опустите штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"],"sourceName":"Bent Over Barbell Row","recMin":50,"recMax":65,"recNote":"рабочий вес штанги"},{"id":"a005","name":"Тяга Т-грифа","nameEn":"t-bar row with handle","target":"upper back","equipment":"barbell","instructions":"Встаньте над Т-грифом, поставьте ноги по бокам от грифа. Наклонитесь вперёд с прямой спиной, слегка согните колени. Возьмитесь за рукоять, руки полностью вытянуты. Потяните гриф вверх к нижней части груди, сводя лопатки и напрягая спину. Задержитесь на мгновение в верхней точке, затем медленно опустите гриф в исходное положение. Держите корпус неподвижным на протяжении движения. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/1.jpg"],"sourceName":"T-Bar Row with Handle","recMin":30,"recMax":45,"recNote":"вес блинов на грифе"},{"id":"a006","name":"Тяга верхнего блока широким хватом","nameEn":"wide-grip lat pulldown","target":"lats","equipment":"cable","instructions":"Сядьте в тренажёр, закрепите колени валиками. Возьмитесь за перекладину широким хватом, ладони от себя. Слегка отклонитесь назад, грудь вверх. Потяните перекладину вниз к верхней части груди, сводя лопатки и напрягая широчайшие. Задержитесь на мгновение в нижней точке. Медленно верните перекладину вверх, полностью выпрямив руки, контролируя вес. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/1.jpg"],"sourceName":"Wide-Grip Lat Pulldown","recMin":45,"recMax":60,"recNote":"вес стека"},{"id":"a007","name":"Разведение на блоках (задние дельты)","nameEn":"cable rear delt fly","target":"delts","equipment":"cable","instructions":"Встаньте между двух блочных стоек, установите рукояти на уровне плеч. Возьмите правой рукой левый трос, левой — правый (руки скрещены). Сохраняя небольшой изгиб в локтях, разведите руки в стороны и назад до уровня плеч. Сожмите лопатки в конечной точке. Медленно верните руки в исходное скрещенное положение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/1.jpg"],"sourceName":"Cable Rear Delt Fly","recMin":8,"recMax":14,"recNote":"вес на каждом блоке"},{"id":"0031","name":"Подъём штанги на бицепс стоя","nameEn":"barbell curl","target":"biceps","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч, возьмите штангу обратным хватом ладонями вперед. Держите локти близко к туловищу и выдыхайте, сгибая штангу и одновременно сокращая бицепсы. Продолжайте поднимать штангу до тех пор, пока ваши бицепсы полностью не сократятся и штанга не окажется на уровне плеч. Задержитесь в сокращенном положении на короткую паузу, одновременно сжимая бицепсы. На вдохе начните медленно опускать штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/1.jpg"],"sourceName":"Barbell Curl","recMin":25,"recMax":35,"recNote":"рабочий вес штанги"},{"id":"a008","name":"Сгибание рук на скамье Скотта","nameEn":"preacher curl","target":"biceps","equipment":"barbell","instructions":"Сядьте за скамью Скотта, прижмите плечи к наклонной подушке. Возьмите штангу или EZ-гриф обратным хватом, руки полностью выпрямлены. Согните руки, поднимая гриф к плечам, максимально напрягая бицепс в верхней точке. Задержитесь на мгновение. Медленно опустите гриф в исходное положение, контролируя вес до полного растяжения бицепса. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/1.jpg"],"sourceName":"Preacher Curl","recMin":15,"recMax":25,"recNote":"рабочий вес штанги/EZ-грифа"}],"legs":[{"id":"0043","name":"Приседания со штангой","nameEn":"barbell full squat","target":"glutes","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, носки слегка развернуты наружу. Держите штангу на верхней части спины, опираясь на трапеции или задние дельты. Напрягите корпус и держите грудь поднятой, когда начинаете опускать тело вниз. Согните колени и бедра, отводя бедра назад и вниз, как будто вы сидите на стуле. Опускайтесь до тех пор, пока бедра не станут параллельны земле или немного ниже. Держите колени на одной линии с пальцами ног, а вес тела перенесите на пятки. Протолкните пятки, чтобы встать обратно, выпрямляя бедра и колени. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":150,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/1.jpg"],"sourceName":"Barbell Squat","recMin":70,"recMax":90,"recNote":"рабочий вес штанги (без учёта веса грифа уже включён)"},{"id":"0085","name":"Румынская тяга со штангой","nameEn":"barbell romanian deadlift","target":"glutes","equipment":"barbell","instructions":"Встаньте, поставив ноги на ширине плеч, носки ног направлены вперед. Возьмите штангу хватом сверху, руки чуть шире плеч. Согните бедра, сохраняя спину прямой и слегка согнутыми в коленях. Опустите штангу к земле, держа ее близко к телу. Почувствуйте растяжение подколенных сухожилий, когда опускаете штангу. Как только вы почувствуете растяжение подколенных сухожилий, выдвиньте бедра вперед и встаньте прямо. Напрягите ягодицы в верхней точке движения. Опустите штангу обратно в исходное положение и повторите желаемое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/1.jpg"],"sourceName":"Romanian Deadlift","recMin":70,"recMax":90,"recNote":"рабочий вес штанги"},{"id":"2287","name":"Жим ногами в тренажёре","nameEn":"lever alternate leg press","target":"quads","equipment":"leverage machine","instructions":"Отрегулируйте сиденье и платформу для ног рычажной машины в желаемое положение. Сядьте на тренажер, прислонившись спиной к спинке и поставив ноги на платформу для ног. Положите руки на ручки или по бокам машины для устойчивости. Упритесь одной ногой в платформу для ног, вытягивая ногу до тех пор, пока она не станет почти полностью прямой. Сделайте паузу на мгновение, затем медленно согните ногу и вернитесь в исходное положение. Повторите с другой ногой. Продолжайте чередовать ноги желаемое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"],"sourceName":"Leg Press","recMin":140,"recMax":180,"recNote":"суммарный вес на платформе тренажёра"},{"id":"a009","name":"Болгарский сплит-присед","nameEn":"split squat with dumbbells","target":"quads","equipment":"dumbbell","instructions":"Встаньте спиной к скамье, держите гантели в руках. Поставьте одну ногу носком на скамью позади себя, вторая — впереди в шаге. Опустите тело вниз, сгибая переднюю ногу до параллели бедра с полом. Держите корпус вертикально, колено передней ноги не выходит за носок. Оттолкнитесь пяткой передней ноги, чтобы вернуться в исходное положение. Выполните все повторения на одну ногу, затем поменяйте сторону.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/1.jpg"],"sourceName":"Split Squat with Dumbbells","recMin":10,"recMax":16,"recNote":"вес одной гантели; на каждую ногу отдельно"},{"id":"a010","name":"Разгибание ног в тренажёре","nameEn":"leg extensions","target":"quads","equipment":"machine","instructions":"Сядьте в тренажёр, прижмите спину к спинке. Поместите ноги под валик так, чтобы он касался щиколоток. Возьмитесь за ручки по бокам. Разогните ноги в коленях, поднимая валик до полного выпрямления. Максимально напрягите квадрицепс в верхней точке, задержитесь на мгновение. Медленно опустите валик вниз, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/1.jpg"],"sourceName":"Leg Extensions","recMin":30,"recMax":45,"recNote":"вес стека"},{"id":"1372","name":"Подъём на носки стоя со штангой","nameEn":"barbell standing calf raise","target":"calves","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, положите штангу на верхнюю часть спины. Поднимите пятки от земли как можно выше, используя только пальцы ног. Задержитесь на мгновение в верхней точке, затем медленно опустите пятки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"],"sourceName":"Standing Barbell Calf Raise","recMin":40,"recMax":60,"recNote":"доп. вес сверх штанги"},{"id":"a011","name":"Планка на локтях","nameEn":"plank","target":"abs","equipment":"body only","instructions":"Примите положение упор лёжа на локтях: локти под плечами, предплечья на полу, ноги на носках. Тело от макушки до пяток образует прямую линию. Напрягите пресс, ягодицы, квадрицепсы. Не прогибайтесь в пояснице и не поднимайте таз. Дышите ровно. Удерживайте позицию заявленное количество секунд. Если тяжело — начните с 30 секунд.","sets":"3","reps":"60с","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/1.jpg"],"sourceName":"Plank","recMin":0,"recMax":0,"recNote":"вес собственного тела; цель — 60 секунд в подходе"}]},"september":{"push":[{"id":"0025","name":"Жим штанги лёжа","nameEn":"barbell bench press","target":"pectorals","equipment":"barbell","instructions":"Лягте на скамью, поставьте ступни на землю и прижмите спину к скамье. Возьмите штангу хватом сверху на расстоянии чуть шире плеч. Снимите штангу со стойки и держите ее прямо над грудью, полностью вытянув руки. Медленно опустите штангу к груди, держа локти прижатыми. Сделайте паузу на мгновение, когда штанга коснется вашей груди. Верните штангу в исходное положение, вытянув руки. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"],"sourceName":"Barbell Bench Press - Medium Grip","recMin":60,"recMax":75,"recNote":"от штанги весом тела начни с разминки, рабочие 60-75 кг на 8-10 повторов"},{"id":"a001","name":"Жим Арнольда","nameEn":"arnold dumbbell press","target":"delts","equipment":"dumbbell","instructions":"Сядьте на скамью, возьмите гантели, ладони обращены к вам, локти согнуты, гантели у плеч. Одновременно разворачивайте кисти наружу и выжимайте гантели вверх, пока руки полностью не выпрямятся. Ладони в верхней точке смотрят вперёд. Медленно опустите гантели, разворачивая кисти обратно, в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Arnold_Dumbbell_Press/1.jpg"],"sourceName":"Arnold Dumbbell Press","recMin":12,"recMax":18,"recNote":"вес одной гантели"},{"id":"a002","name":"Армейский жим стоя","nameEn":"standing military press","target":"delts","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч. Возьмите штангу хватом чуть шире плеч, поднимите её на грудь. Напрягите корпус, ягодицы и ноги. Выжмите штангу вертикально вверх над головой, полностью выпрямив руки. Немного отклоните голову вперёд в верхней точке, чтобы гриф прошёл над лицом. Медленно опустите штангу обратно на грудь. Повторите необходимое количество повторений.","sets":"4","reps":"6-8","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/1.jpg"],"sourceName":"Standing Military Press","recMin":35,"recMax":45,"recNote":"рабочий вес штанги (включая гриф)"},{"id":"a003","name":"Face Pull на блоке","nameEn":"face pull","target":"delts","equipment":"cable","instructions":"Прикрепите канатную рукоять к верхнему блоку. Встаньте лицом к тренажёру, возьмитесь за концы каната сверху ладонями вниз. Отойдите на шаг, руки полностью вытянуты. Потяните канат на себя к уровню лица, разводя руки в стороны так, чтобы локти были высоко и на одной линии с плечами. Сведите лопатки в верхней точке, задержитесь на секунду. Медленно вернитесь в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/1.jpg"],"sourceName":"Face Pull","recMin":15,"recMax":25,"recNote":"вес стека; вес меньше — техника важнее"},{"id":"a004","name":"Жим гантелей лёжа","nameEn":"dumbbell bench press","target":"pectorals","equipment":"dumbbell","instructions":"Лягте на скамью, поставьте ноги на землю и плотно прижмите спину к скамье. Возьмите по гантели в каждую руку ладонями вперёд и поднимите их на высоту груди, локти согнуты под 90 градусов. Выжмите гантели вверх до полного выпрямления рук, сближая их в верхней точке. Медленно опустите гантели по бокам груди, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/1.jpg"],"sourceName":"Dumbbell Bench Press","recMin":24,"recMax":32,"recNote":"вес одной гантели"},{"id":"0060","name":"Французский жим штанги лёжа","nameEn":"barbell lying triceps extension skull crusher","target":"triceps","equipment":"barbell","instructions":"Лягте на скамью, положив ноги на землю, а голову на край скамьи. Возьмите штангу хватом сверху, руки на ширине плеч, вытяните руки вверх над грудью. Удерживая плечи неподвижно, медленно опустите штангу ко лбу, сгибая локти. Сделайте паузу на мгновение, когда штанга окажется прямо над лбом, затем вытяните руки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/EZ-Bar_Skullcrusher/1.jpg"],"sourceName":"EZ-Bar Skullcrusher","recMin":20,"recMax":30,"recNote":"суммарный вес штанги/EZ-грифа без учёта веса самого грифа"},{"id":"0241","name":"Разгибание рук на блоке (трицепс)","nameEn":"cable triceps pushdown (v-bar)","target":"triceps","equipment":"cable","instructions":"Прикрепите V-образную насадку к тросовому станку на самой высокой скорости. Встаньте лицом к канатному тренажеру, поставив ноги на ширине плеч. Возьмитесь за V-образную перекладину хватом сверху, ладонями вниз, руки на ширине плеч. На протяжении всего упражнения держите локти близко к бокам, а плечи неподвижными. Задействуйте трицепсы и на выдохе опускайте V-образную планку вниз, пока руки полностью не выпрямятся. Задержитесь на мгновение в нижней части движения, напрягая трицепсы. На вдохе медленно возвращайте V-образную планку в исходное положение, сохраняя контроль. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Triceps_Pushdown_-_V-Bar_Attachment/1.jpg"],"sourceName":"Triceps Pushdown - V-Bar Attachment","recMin":25,"recMax":35,"recNote":"вес стека"},{"id":"b001","name":"Скручивания на блоке с поворотом","nameEn":"kneeling cable crunch with oblique twists","target":"abs","equipment":"cable","instructions":"Встань на колени перед верхним блоком, возьми канатную рукоять и заведи её за голову. Скругли спину, выдохни и опустись вниз, коснувшись локтями бёдер. В нижней точке поверни корпус в сторону — сначала левым локтем к правому бедру, следующее повторение наоборот. Удерживай сокращение на 1 секунду. Медленно вернись в исходное положение. Работай прессом, не руками.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Cable_Crunch_With_Alternating_Oblique_Twists/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Cable_Crunch_With_Alternating_Oblique_Twists/1.jpg"],"sourceName":"Kneeling Cable Crunch With Alternating Oblique Twists","recMin":20,"recMax":35,"recNote":"вес стека; техника важнее веса"},{"id":"b002","name":"Русские скручивания","nameEn":"russian twist","target":"abs","equipment":"body only","instructions":"Сядь на пол, согни колени, слегка отклонись назад так, чтобы почувствовать напряжение в прессе. Ступни можно оторвать от пола для сложности или оставить на полу. Сложи руки перед собой или возьми блин/гантель для веса. Поворачивай корпус вправо и влево, касаясь пола (или веса) сбоку от бедра. Одно повторение — поворот в обе стороны. Работай корпусом, не махай руками.","sets":"3","reps":"20 (по 10 в сторону)","rest":30,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Russian_Twist/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Russian_Twist/1.jpg"],"sourceName":"Russian Twist","recMin":0,"recMax":10,"recNote":"начни без веса; потом бери гантель 5-10 кг"},{"id":"cardio-push","name":"Кардио-финишер (5-10 мин)","nameEn":"cardio finisher","target":"abs","equipment":"any","instructions":"Выбери один снаряд: велотренажёр, гребной тренажёр, беговая дорожка или скакалка. Держи темп на уровне 6-7 из 10 — тяжело говорить полными предложениями, но не задыхаешься. 5-10 минут без остановки. Можно вариант интервалов: 30 секунд быстро, 30 секунд медленно. Цель — добить сердечно-сосудистую систему, ускорить восстановление и сжечь дополнительные калории. НЕ выполняй до силовой работы — иначе не будет сил на подходы.","sets":"1","reps":"5-10 мин","rest":0,"images":[],"sourceName":"Cardio finisher","recMin":0,"recMax":0,"recNote":"любой снаряд; темп 6-7 из 10"}],"pull":[{"id":"1429","name":"Подтягивания широким хватом","nameEn":"wide grip pull-up","target":"lats","equipment":"body weight","instructions":"Повисните на перекладине, повернув ладонями от себя и расставив руки на ширине плеч. Напрягите корпус и сведите лопатки вместе. Подтягивайте тело к перекладине, пока подбородок не окажется над перекладиной. Опустите тело обратно в исходное положение, контролируя его. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"],"sourceName":"Pullups","recMin":0,"recMax":0,"recNote":"свой вес тела; если 8-10 чистых подтягиваний пока тяжело — используй тренажёр гравитрон (компенсация 15-25 кг)"},{"id":"0027","name":"Тяга штанги в наклоне","nameEn":"barbell bent over row","target":"upper back","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч и слегка согнуты в коленях. Наклонитесь вперед в бедрах, сохраняя спину прямой и грудь вверх. Возьмите штангу хватом сверху, руки на расстоянии чуть шире плеч. Потяните штангу к нижней части груди, сводя лопатки и напрягая мышцы спины. Задержитесь на мгновение в верхней точке, затем медленно опустите штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"],"sourceName":"Bent Over Barbell Row","recMin":50,"recMax":65,"recNote":"рабочий вес штанги"},{"id":"a005","name":"Тяга Т-грифа","nameEn":"t-bar row with handle","target":"upper back","equipment":"barbell","instructions":"Встаньте над Т-грифом, поставьте ноги по бокам от грифа. Наклонитесь вперёд с прямой спиной, слегка согните колени. Возьмитесь за рукоять, руки полностью вытянуты. Потяните гриф вверх к нижней части груди, сводя лопатки и напрягая спину. Задержитесь на мгновение в верхней точке, затем медленно опустите гриф в исходное положение. Держите корпус неподвижным на протяжении движения. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/T-Bar_Row_with_Handle/1.jpg"],"sourceName":"T-Bar Row with Handle","recMin":30,"recMax":45,"recNote":"вес блинов на грифе"},{"id":"a006","name":"Тяга верхнего блока широким хватом","nameEn":"wide-grip lat pulldown","target":"lats","equipment":"cable","instructions":"Сядьте в тренажёр, закрепите колени валиками. Возьмитесь за перекладину широким хватом, ладони от себя. Слегка отклонитесь назад, грудь вверх. Потяните перекладину вниз к верхней части груди, сводя лопатки и напрягая широчайшие. Задержитесь на мгновение в нижней точке. Медленно верните перекладину вверх, полностью выпрямив руки, контролируя вес. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/1.jpg"],"sourceName":"Wide-Grip Lat Pulldown","recMin":45,"recMax":60,"recNote":"вес стека"},{"id":"a007","name":"Разведение на блоках (задние дельты)","nameEn":"cable rear delt fly","target":"delts","equipment":"cable","instructions":"Встаньте между двух блочных стоек, установите рукояти на уровне плеч. Возьмите правой рукой левый трос, левой — правый (руки скрещены). Сохраняя небольшой изгиб в локтях, разведите руки в стороны и назад до уровня плеч. Сожмите лопатки в конечной точке. Медленно верните руки в исходное скрещенное положение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Rear_Delt_Fly/1.jpg"],"sourceName":"Cable Rear Delt Fly","recMin":8,"recMax":14,"recNote":"вес на каждом блоке"},{"id":"0031","name":"Подъём штанги на бицепс стоя","nameEn":"barbell curl","target":"biceps","equipment":"barbell","instructions":"Встаньте прямо, ноги на ширине плеч, возьмите штангу обратным хватом ладонями вперед. Держите локти близко к туловищу и выдыхайте, сгибая штангу и одновременно сокращая бицепсы. Продолжайте поднимать штангу до тех пор, пока ваши бицепсы полностью не сократятся и штанга не окажется на уровне плеч. Задержитесь в сокращенном положении на короткую паузу, одновременно сжимая бицепсы. На вдохе начните медленно опускать штангу обратно в исходное положение. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Curl/1.jpg"],"sourceName":"Barbell Curl","recMin":25,"recMax":35,"recNote":"рабочий вес штанги"},{"id":"a008","name":"Сгибание рук на скамье Скотта","nameEn":"preacher curl","target":"biceps","equipment":"barbell","instructions":"Сядьте за скамью Скотта, прижмите плечи к наклонной подушке. Возьмите штангу или EZ-гриф обратным хватом, руки полностью выпрямлены. Согните руки, поднимая гриф к плечам, максимально напрягая бицепс в верхней точке. Задержитесь на мгновение. Медленно опустите гриф в исходное положение, контролируя вес до полного растяжения бицепса. Повторите необходимое количество повторений.","sets":"3","reps":"10-12","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Preacher_Curl/1.jpg"],"sourceName":"Preacher Curl","recMin":15,"recMax":25,"recNote":"рабочий вес штанги/EZ-грифа"},{"id":"b003","name":"Подъём ног в висе","nameEn":"hanging leg raise","target":"abs","equipment":"body only","instructions":"Повисни на перекладине хватом сверху, руки на ширине плеч. Держи плечи активными (не расслабляй в суставах). Напряги пресс и подними прямые (или слегка согнутые) ноги вверх до уровня бёдер параллельно полу или выше. Не раскачивайся — движение должно идти от пресса, а не по инерции. Задержись в верхней точке на секунду, затем медленно опусти ноги. Если тяжело с прямыми ногами — начинай с согнутых в коленях.","sets":"3","reps":"10-15","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hanging_Leg_Raise/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hanging_Leg_Raise/1.jpg"],"sourceName":"Hanging Leg Raise","recMin":0,"recMax":0,"recNote":"свой вес; если тяжело — согни колени"},{"id":"b004","name":"Dead Bug (мёртвый жук)","nameEn":"dead bug","target":"abs","equipment":"body only","instructions":"Ляг на спину, руки вытяни вверх к потолку, ноги согни в коленях под 90 градусов (голени параллельны полу). Прижми поясницу к полу — она НЕ должна отрываться на протяжении всего упражнения. Одновременно опусти правую руку за голову и левую ногу к полу (не касаясь). Медленно вернись в исходное положение и повтори с другой стороной. Работай прессом-стабилизатором, дыши ровно. Одно повторение — обе стороны.","sets":"3","reps":"10 (по 5 на сторону)","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/1.jpg"],"sourceName":"Dead Bug","recMin":0,"recMax":0,"recNote":"свой вес; поясница прижата, медленный контроль"},{"id":"cardio-pull","name":"Кардио-финишер (5-10 мин)","nameEn":"cardio finisher","target":"abs","equipment":"any","instructions":"Выбери один снаряд: велотренажёр, гребной тренажёр, беговая дорожка или скакалка. Держи темп на уровне 6-7 из 10 — тяжело говорить полными предложениями, но не задыхаешься. 5-10 минут без остановки. Можно вариант интервалов: 30 секунд быстро, 30 секунд медленно. Цель — добить сердечно-сосудистую систему, ускорить восстановление и сжечь дополнительные калории. НЕ выполняй до силовой работы — иначе не будет сил на подходы.","sets":"1","reps":"5-10 мин","rest":0,"images":[],"sourceName":"Cardio finisher","recMin":0,"recMax":0,"recNote":"любой снаряд; темп 6-7 из 10"}],"legs":[{"id":"0043","name":"Приседания со штангой","nameEn":"barbell full squat","target":"glutes","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, носки слегка развернуты наружу. Держите штангу на верхней части спины, опираясь на трапеции или задние дельты. Напрягите корпус и держите грудь поднятой, когда начинаете опускать тело вниз. Согните колени и бедра, отводя бедра назад и вниз, как будто вы сидите на стуле. Опускайтесь до тех пор, пока бедра не станут параллельны земле или немного ниже. Держите колени на одной линии с пальцами ног, а вес тела перенесите на пятки. Протолкните пятки, чтобы встать обратно, выпрямляя бедра и колени. Повторите необходимое количество повторений.","sets":"4","reps":"8-10","rest":150,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Squat/1.jpg"],"sourceName":"Barbell Squat","recMin":70,"recMax":90,"recNote":"рабочий вес штанги (без учёта веса грифа уже включён)"},{"id":"0085","name":"Румынская тяга со штангой","nameEn":"barbell romanian deadlift","target":"glutes","equipment":"barbell","instructions":"Встаньте, поставив ноги на ширине плеч, носки ног направлены вперед. Возьмите штангу хватом сверху, руки чуть шире плеч. Согните бедра, сохраняя спину прямой и слегка согнутыми в коленях. Опустите штангу к земле, держа ее близко к телу. Почувствуйте растяжение подколенных сухожилий, когда опускаете штангу. Как только вы почувствуете растяжение подколенных сухожилий, выдвиньте бедра вперед и встаньте прямо. Напрягите ягодицы в верхней точке движения. Опустите штангу обратно в исходное положение и повторите желаемое количество повторений.","sets":"4","reps":"8-10","rest":120,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift/1.jpg"],"sourceName":"Romanian Deadlift","recMin":70,"recMax":90,"recNote":"рабочий вес штанги"},{"id":"2287","name":"Жим ногами в тренажёре","nameEn":"lever alternate leg press","target":"quads","equipment":"leverage machine","instructions":"Отрегулируйте сиденье и платформу для ног рычажной машины в желаемое положение. Сядьте на тренажер, прислонившись спиной к спинке и поставив ноги на платформу для ног. Положите руки на ручки или по бокам машины для устойчивости. Упритесь одной ногой в платформу для ног, вытягивая ногу до тех пор, пока она не станет почти полностью прямой. Сделайте паузу на мгновение, затем медленно согните ногу и вернитесь в исходное положение. Повторите с другой ногой. Продолжайте чередовать ноги желаемое количество повторений.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"],"sourceName":"Leg Press","recMin":140,"recMax":180,"recNote":"суммарный вес на платформе тренажёра"},{"id":"a009","name":"Болгарский сплит-присед","nameEn":"split squat with dumbbells","target":"quads","equipment":"dumbbell","instructions":"Встаньте спиной к скамье, держите гантели в руках. Поставьте одну ногу носком на скамью позади себя, вторая — впереди в шаге. Опустите тело вниз, сгибая переднюю ногу до параллели бедра с полом. Держите корпус вертикально, колено передней ноги не выходит за носок. Оттолкнитесь пяткой передней ноги, чтобы вернуться в исходное положение. Выполните все повторения на одну ногу, затем поменяйте сторону.","sets":"3","reps":"10-12","rest":90,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Split_Squat_with_Dumbbells/1.jpg"],"sourceName":"Split Squat with Dumbbells","recMin":10,"recMax":16,"recNote":"вес одной гантели; на каждую ногу отдельно"},{"id":"a010","name":"Разгибание ног в тренажёре","nameEn":"leg extensions","target":"quads","equipment":"machine","instructions":"Сядьте в тренажёр, прижмите спину к спинке. Поместите ноги под валик так, чтобы он касался щиколоток. Возьмитесь за ручки по бокам. Разогните ноги в коленях, поднимая валик до полного выпрямления. Максимально напрягите квадрицепс в верхней точке, задержитесь на мгновение. Медленно опустите валик вниз, контролируя движение. Повторите необходимое количество повторений.","sets":"3","reps":"12-15","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Extensions/1.jpg"],"sourceName":"Leg Extensions","recMin":30,"recMax":45,"recNote":"вес стека"},{"id":"1372","name":"Подъём на носки стоя со штангой","nameEn":"barbell standing calf raise","target":"calves","equipment":"barbell","instructions":"Встаньте, ноги на ширине плеч, положите штангу на верхнюю часть спины. Поднимите пятки от земли как можно выше, используя только пальцы ног. Задержитесь на мгновение в верхней точке, затем медленно опустите пятки обратно в исходное положение. Повторите необходимое количество повторений.","sets":"4","reps":"15-20","rest":45,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Barbell_Calf_Raise/1.jpg"],"sourceName":"Standing Barbell Calf Raise","recMin":40,"recMax":60,"recNote":"доп. вес сверх штанги"},{"id":"a011","name":"Планка на локтях","nameEn":"plank","target":"abs","equipment":"body only","instructions":"Примите положение упор лёжа на локтях: локти под плечами, предплечья на полу, ноги на носках. Тело от макушки до пяток образует прямую линию. Напрягите пресс, ягодицы, квадрицепсы. Не прогибайтесь в пояснице и не поднимайте таз. Дышите ровно. Удерживайте позицию заявленное количество секунд. Если тяжело — начните с 30 секунд.","sets":"3","reps":"60с","rest":60,"images":["https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg","https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/1.jpg"],"sourceName":"Plank","recMin":0,"recMax":0,"recNote":"вес собственного тела; цель — 60 секунд в подходе"},{"id":"cardio-legs","name":"Кардио-финишер (5-10 мин)","nameEn":"cardio finisher","target":"abs","equipment":"any","instructions":"Выбери один снаряд: велотренажёр, гребной тренажёр, беговая дорожка или скакалка. Держи темп на уровне 6-7 из 10 — тяжело говорить полными предложениями, но не задыхаешься. 5-10 минут без остановки. Можно вариант интервалов: 30 секунд быстро, 30 секунд медленно. Цель — добить сердечно-сосудистую систему, ускорить восстановление и сжечь дополнительные калории. НЕ выполняй до силовой работы — иначе не будет сил на подходы.","sets":"1","reps":"5-10 мин","rest":0,"images":[],"sourceName":"Cardio finisher","recMin":0,"recMax":0,"recNote":"любой снаряд; темп 6-7 из 10"}]}}`;
+window.PROGRAMS = JSON.parse(PROGRAMS_JSON);
 </script>
 
 <script type="text/babel" data-presets="react">
 
-const PROGRAM = window.PROGRAM || {};
+const PROGRAMS = window.PROGRAMS || {};
+
+// Метаданные программ (порядок = порядок в селекторе, последняя = по умолчанию)
+const PROGRAM_META = [
+  { key: "august",    label: "Август",   sub: "База: PPL, 21 упр." },
+  { key: "september", label: "Сентябрь", sub: "+ пресс + кардио, 28 упр." },
+];
+const DEFAULT_PROGRAM = PROGRAM_META[PROGRAM_META.length - 1].key;
 
 const DAY_META = {
   push: { label: "PUSH", sub: "Грудь · Плечи · Трицепс", code: "01", ru: "Жим" },
@@ -65,9 +81,17 @@ const TARGET_RU = {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+// EX_INDEX содержит упражнения из ВСЕХ программ — чтобы История всегда знала метаданные
+// (иначе после переключения программы старые упражнения потеряли бы имя/тип дня)
 const EX_INDEX = {};
-Object.keys(PROGRAM).forEach((d) => {
-  PROGRAM[d].forEach((ex) => { EX_INDEX[ex.id] = { ...ex, dayType: d }; });
+Object.keys(PROGRAMS).forEach((pkey) => {
+  Object.keys(PROGRAMS[pkey]).forEach((d) => {
+    PROGRAMS[pkey][d].forEach((ex) => {
+      // Первое встреченное имеет приоритет — не переписываем, чтобы порядок META был устойчивым
+      if (!EX_INDEX[ex.id]) EX_INDEX[ex.id] = { ...ex, dayType: d, programs: [pkey] };
+      else EX_INDEX[ex.id].programs.push(pkey);
+    });
+  });
 });
 
 const RU_MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
@@ -127,18 +151,17 @@ function ExPhoto({ src, alt, className }) {
   return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />;
 }
 
-function ExerciseCard({ ex, index }) {
+function ExerciseCard({ ex, index, onStartRest, onProgress }) {
   const numSets = parseInt(ex.sets, 10);
   const [rows, setRows] = React.useState(
     Array.from({ length: numSets }, () => ({ weight: "", reps: "", done: false }))
   );
   const [lastSession, setLastSession] = React.useState(null);
+  const [maxWeightEver, setMaxWeightEver] = React.useState(null); // рекорд по этому упражнению
   const [open, setOpen] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
-  const [timer, setTimer] = React.useState(null);
   const [photoPhase, setPhotoPhase] = React.useState(0);
   const [lightbox, setLightbox] = React.useState(false);
-  const intervalRef = React.useRef(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -150,18 +173,26 @@ function ExerciseCard({ ex, index }) {
           setRows(log.rows);
           setSaved(true);
         }
+        // Считаем максимум по истории
+        if (Array.isArray(log.history)) {
+          let mx = 0;
+          log.history.forEach(h => {
+            (h.rows || []).forEach(r => {
+              const w = parseFloat(r.weight);
+              if (!isNaN(w) && w > mx) mx = w;
+            });
+          });
+          setMaxWeightEver(mx > 0 ? mx : null);
+        }
       }
     })();
     return () => { mounted = false; };
   }, [ex.id]);
 
+  // Сообщаем родителю о прогрессе
   React.useEffect(() => {
-    if (timer === null || timer <= 0) return;
-    intervalRef.current = setInterval(() => {
-      setTimer((t) => (t === null || t <= 1 ? 0 : t - 1));
-    }, 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [timer]);
+    if (onProgress) onProgress(ex.id, rows.filter(r => r.done).length);
+  }, [rows, ex.id, onProgress]);
 
   const updateRow = (i, field, val) => {
     setRows((prev) => {
@@ -172,7 +203,14 @@ function ExerciseCard({ ex, index }) {
     setSaved(false);
   };
 
-  const toggleDone = (i) => updateRow(i, "done", !rows[i].done);
+  const toggleDone = (i) => {
+    const wasDone = rows[i].done;
+    updateRow(i, "done", !wasDone);
+    // Автостарт таймера отдыха при отметке подхода (не последнего, не при снятии галки)
+    if (!wasDone && ex.rest > 0 && i < numSets - 1 && onStartRest) {
+      onStartRest(ex.rest, ex.name);
+    }
+  };
 
   const handleSave = async () => {
     const existing = await loadLog(ex.id);
@@ -262,32 +300,39 @@ function ExerciseCard({ ex, index }) {
             <div className="set-row set-row--header">
               <span>Подход</span><span>Вес, кг</span><span>Повторы</span><span></span>
             </div>
-            {rows.map((row, i) => (
-              <div className={`set-row ${row.done ? "set-row--done" : ""}`} key={i}>
-                <span className="set-idx">{i + 1}</span>
-                <input
-                  type="number" inputMode="decimal"
-                  placeholder={lastSession?.rows?.[i]?.weight || (ex.recMax ? `~${Math.round((ex.recMin + ex.recMax) / 2)}` : "—")}
-                  value={row.weight}
-                  onChange={(e) => updateRow(i, "weight", e.target.value)}
-                />
-                <input
-                  type="number" inputMode="numeric"
-                  placeholder={lastSession?.rows?.[i]?.reps || ex.reps.split("-")[0]}
-                  value={row.reps}
-                  onChange={(e) => updateRow(i, "reps", e.target.value)}
-                />
-                <button className={`check ${row.done ? "check--on" : ""}`} onClick={() => toggleDone(i)} aria-label={row.done ? "Отменить" : "Отметить подход"}>
-                  {row.done ? "✓" : "○"}
-                </button>
-              </div>
-            ))}
+            {rows.map((row, i) => {
+              const w = parseFloat(row.weight);
+              const isPR = !isNaN(w) && maxWeightEver !== null && w > maxWeightEver;
+              return (
+                <div className={`set-row ${row.done ? "set-row--done" : ""}`} key={i}>
+                  <span className="set-idx">{i + 1}</span>
+                  <input
+                    type="number" inputMode="decimal"
+                    className={isPR ? "input--pr" : ""}
+                    placeholder={lastSession?.rows?.[i]?.weight || (ex.recMax ? `~${Math.round((ex.recMin + ex.recMax) / 2)}` : "—")}
+                    value={row.weight}
+                    onChange={(e) => updateRow(i, "weight", e.target.value)}
+                  />
+                  <input
+                    type="number" inputMode="numeric"
+                    placeholder={lastSession?.rows?.[i]?.reps || ex.reps.split("-")[0]}
+                    value={row.reps}
+                    onChange={(e) => updateRow(i, "reps", e.target.value)}
+                  />
+                  <button className={`check ${row.done ? "check--on" : ""}`} onClick={() => toggleDone(i)} aria-label={row.done ? "Отменить" : "Отметить подход"}>
+                    {row.done ? "✓" : "○"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           <div className="ex-actions">
-            <button className="btn-rest" onClick={() => setTimer(ex.rest)}>
-              {timer !== null && timer > 0 ? `⏱ ${fmtClock(timer)}` : `⏱ Таймер отдыха ${ex.rest}с`}
-            </button>
+            {ex.rest > 0 && (
+              <button className="btn-rest" onClick={() => onStartRest && onStartRest(ex.rest, ex.name)}>
+                ⏱ Отдых {ex.rest}с
+              </button>
+            )}
             <button className="btn-save" onClick={handleSave}>
               {saved ? "Сохранено" : "Сохранить подходы"}
             </button>
@@ -622,10 +667,131 @@ function HistoryView() {
   );
 }
 
+function RestTimerOverlay({ state, onAdjust, onClose }) {
+  const { remaining, total, exName } = state;
+  const finished = remaining <= 0;
+  const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+
+  // Автозакрытие через 5 секунд после нуля
+  React.useEffect(() => {
+    if (!finished) return;
+    const t = setTimeout(onClose, 5000);
+    return () => clearTimeout(t);
+  }, [finished, onClose]);
+
+  // Ring SVG
+  const R = 120, C = 2 * Math.PI * R;
+  const dash = C * (1 - pct / 100);
+
+  return (
+    <div className="rest-overlay" role="dialog" aria-modal="true">
+      <button className="rest-close" onClick={onClose} aria-label="Закрыть">×</button>
+
+      <div className="rest-title">{finished ? "Отдых окончен" : "Отдых"}</div>
+      {exName && <div className="rest-ex">{exName}</div>}
+
+      <div className="rest-ring-wrap">
+        <svg className="rest-ring" viewBox="0 0 280 280" width="280" height="280">
+          <circle cx="140" cy="140" r={R} fill="none" stroke="var(--surface2)" strokeWidth="10" />
+          <circle
+            cx="140" cy="140" r={R} fill="none"
+            stroke={finished ? "var(--olive)" : "var(--rust)"}
+            strokeWidth="10" strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={dash}
+            transform="rotate(-90 140 140)"
+            style={{ transition: "stroke-dashoffset 0.5s linear, stroke 0.3s ease" }}
+          />
+        </svg>
+        <div className={`rest-time ${finished ? "rest-time--done" : ""}`}>
+          {finished ? "GO" : fmtClock(remaining)}
+        </div>
+      </div>
+
+      <div className="rest-controls">
+        <button className="rest-btn" onClick={() => onAdjust(-15)} disabled={finished}>−15с</button>
+        <button className="rest-btn rest-btn--primary" onClick={onClose}>
+          {finished ? "Продолжить" : "Пропустить"}
+        </button>
+        <button className="rest-btn" onClick={() => onAdjust(15)}>+15с</button>
+      </div>
+    </div>
+  );
+}
+
 function WorkoutApp() {
+  const [programKey, setProgramKey] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem("activeProgram");
+      if (saved && PROGRAMS[saved]) return saved;
+    } catch {}
+    return DEFAULT_PROGRAM;
+  });
   const [day, setDay] = React.useState("push");
   const [mode, setMode] = React.useState("train");
-  const exercises = PROGRAM[day];
+  const [theme, setTheme] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem("theme");
+      return saved === "light" ? "light" : "dark";
+    } catch { return "dark"; }
+  });
+
+  // Глобальный таймер отдыха: один на всё приложение
+  const [restTimer, setRestTimer] = React.useState(null); // { remaining, total, exName } | null
+  const restIntervalRef = React.useRef(null);
+
+  // Прогресс дня: { exId: doneCount }
+  const [dayProgress, setDayProgress] = React.useState({});
+  const updateExProgress = React.useCallback((exId, done) => {
+    setDayProgress(p => (p[exId] === done ? p : { ...p, [exId]: done }));
+  }, []);
+
+  React.useEffect(() => {
+    try { localStorage.setItem("activeProgram", programKey); } catch {}
+    // При смене программы сбрасываем прогресс (карточки пересоздадутся)
+    setDayProgress({});
+  }, [programKey]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem("theme", theme); } catch {}
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  // Тик таймера отдыха
+  React.useEffect(() => {
+    if (!restTimer || restTimer.remaining <= 0) {
+      if (restIntervalRef.current) { clearInterval(restIntervalRef.current); restIntervalRef.current = null; }
+      return;
+    }
+    restIntervalRef.current = setInterval(() => {
+      setRestTimer(t => {
+        if (!t) return null;
+        const next = t.remaining - 1;
+        if (next <= 0) {
+          // Вибрация + звук при окончании
+          try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); } catch {}
+          return { ...t, remaining: 0 };
+        }
+        return { ...t, remaining: next };
+      });
+    }, 1000);
+    return () => { if (restIntervalRef.current) clearInterval(restIntervalRef.current); };
+  }, [restTimer && restTimer.remaining > 0]);
+
+  const startRest = React.useCallback((seconds, exName) => {
+    if (!seconds || seconds <= 0) return;
+    setRestTimer({ remaining: seconds, total: seconds, exName: exName || "" });
+  }, []);
+  const adjustRest = React.useCallback((delta) => {
+    setRestTimer(t => t ? { ...t, remaining: Math.max(0, t.remaining + delta), total: Math.max(t.total, t.remaining + delta) } : null);
+  }, []);
+  const closeRest = React.useCallback(() => setRestTimer(null), []);
+
+  const program = PROGRAMS[programKey] || {};
+  const exercises = program[day] || [];
+
+  // Прогресс тренировки: подходов сделано / всего в текущем дне
+  const plannedSetsInDay = exercises.reduce((s, ex) => s + (parseInt(ex.sets, 10) || 0), 0);
+  const doneSetsInDay = exercises.reduce((s, ex) => s + (dayProgress[ex.id] || 0), 0);
 
   return (
     <div className="app">
@@ -636,6 +802,17 @@ function WorkoutApp() {
           --bg: #15130f; --surface: #1f1c16; --surface2: #262219; --line: #353025;
           --chalk: #ece6d8; --chalk-dim: #a39a89;
           --rust: #c1502e; --rust-dim: #8a3a22; --olive: #7c9473;
+          --rust-tint: rgba(193,80,46,0.12);
+          --shadow-lg: 0 20px 60px rgba(0,0,0,0.55);
+          --overlay: rgba(20,17,12,0.92);
+        }
+        [data-theme="light"] {
+          --bg: #f5f1e8; --surface: #ffffff; --surface2: #ece7db; --line: #d8d1c1;
+          --chalk: #2a2620; --chalk-dim: #74695a;
+          --rust: #a83e1e; --rust-dim: #7a2c14; --olive: #607859;
+          --rust-tint: rgba(168,62,30,0.10);
+          --shadow-lg: 0 20px 60px rgba(0,0,0,0.18);
+          --overlay: rgba(245,241,232,0.94);
         }
         * { box-sizing: border-box; }
         .app {
@@ -645,9 +822,47 @@ function WorkoutApp() {
             radial-gradient(circle at 85% 10%, rgba(255,255,255,0.03), transparent 35%);
         }
         .header { padding: 28px 20px 18px 20px; border-bottom: 1px solid var(--line); }
+        .header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .theme-toggle { background: transparent; border: 1px solid var(--line); border-radius: 999px; width: 40px; height: 40px; color: var(--chalk); font-size: 18px; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .theme-toggle:active { transform: scale(0.92); }
+        .theme-toggle:hover { border-color: var(--rust); color: var(--rust); }
+
+        .day-progress { margin: 12px 20px 0; }
+        .day-progress-bar { height: 6px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+        .day-progress-fill { height: 100%; background: var(--rust); border-radius: 999px; transition: width 0.3s ease; }
+        .day-progress-label { font-size: 11px; color: var(--chalk-dim); margin-top: 6px; text-align: center; }
+
+        .input--pr { border-color: var(--olive) !important; color: var(--chalk) !important; box-shadow: 0 0 0 2px rgba(124,148,115,0.15); }
+
+        .rest-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          background: var(--overlay); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 20px; color: var(--chalk);
+          animation: rest-in 0.25s ease;
+        }
+        @keyframes rest-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        .rest-close { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: var(--chalk-dim); font-size: 32px; cursor: pointer; padding: 8px 12px; line-height: 1; }
+        .rest-title { font-family: 'Oswald', sans-serif; font-size: 20px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--chalk-dim); margin-bottom: 6px; }
+        .rest-ex { font-size: 14px; color: var(--chalk-dim); margin-bottom: 20px; text-align: center; max-width: 280px; }
+        .rest-ring-wrap { position: relative; margin: 20px 0 32px; }
+        .rest-ring { display: block; }
+        .rest-time { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 64px; font-weight: 700; color: var(--chalk); letter-spacing: -0.02em; }
+        .rest-time--done { color: var(--olive); font-size: 56px; animation: rest-pulse 0.8s ease infinite; }
+        @keyframes rest-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        .rest-controls { display: flex; gap: 10px; }
+        .rest-btn { padding: 14px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; color: var(--chalk); font-size: 14px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; min-width: 90px; }
+        .rest-btn:active { transform: scale(0.96); }
+        .rest-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .rest-btn--primary { background: var(--rust); border-color: var(--rust); color: white; }
         .eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: var(--rust); text-transform: uppercase; margin-bottom: 6px; }
         .title { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: 0.01em; text-transform: uppercase; }
         .subtitle { color: var(--chalk-dim); font-size: 13px; margin-top: 4px; }
+
+        .prog-switch { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+        .prog-chip { padding: 6px 12px; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--chalk-dim); font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .prog-chip:active { transform: scale(0.96); }
+        .prog-chip--on { border-color: var(--rust); background: rgba(193,80,46,0.15); color: var(--chalk); }
 
         .day-rack { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 18px 20px 0 20px; }
         .day-plate { padding: 12px 6px 10px; text-align: center; cursor: pointer; background: transparent; border: 1px solid var(--line); border-radius: 12px; color: var(--chalk); -webkit-appearance: none; appearance: none; transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease; }
@@ -791,13 +1006,38 @@ function WorkoutApp() {
       `}</style>
 
       <div className="header">
-        <div className="eyebrow">Программа тренировок</div>
-        <div className="title">PPL Tracker</div>
-        <div className="subtitle">Push / Pull / Legs</div>
+        <div className="header-top">
+          <div>
+            <div className="eyebrow">Программа тренировок</div>
+            <div className="title">PPL Tracker</div>
+            <div className="subtitle">Push / Pull / Legs</div>
+          </div>
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+            aria-label={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+            title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
+        </div>
+
+        <div className="prog-switch">
+          {PROGRAM_META.map((p) => (
+            <button
+              key={p.key}
+              className={`prog-chip ${programKey === p.key ? "prog-chip--on" : ""}`}
+              onClick={() => { setProgramKey(p.key); }}
+              title={p.sub}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="day-rack">
-        {Object.keys(PROGRAM).map((d) => (
+        {Object.keys(program).map((d) => (
           <button
             key={d}
             className={`day-plate ${mode === "train" && day === d ? "day-plate--on" : ""}`}
@@ -808,6 +1048,21 @@ function WorkoutApp() {
           </button>
         ))}
       </div>
+
+      {mode === "train" && plannedSetsInDay > 0 && (
+        <div className="day-progress">
+          <div className="day-progress-bar">
+            <div
+              className="day-progress-fill"
+              style={{ width: `${Math.min(100, (doneSetsInDay / plannedSetsInDay) * 100)}%` }}
+            />
+          </div>
+          <div className="day-progress-label">
+            {doneSetsInDay}/{plannedSetsInDay} подходов
+            {doneSetsInDay === plannedSetsInDay && plannedSetsInDay > 0 && " · тренировка завершена 🔥"}
+          </div>
+        </div>
+      )}
 
       <div className="view-tabs">
         <button className={`view-tab ${mode === "train" ? "view-tab--on" : ""}`} onClick={() => setMode("train")}>
@@ -821,12 +1076,26 @@ function WorkoutApp() {
       {mode === "train" && (
         <div className="ex-list">
           {exercises.map((ex, idx) => (
-            <ExerciseCard key={ex.id} ex={ex} index={idx} />
+            <ExerciseCard
+              key={`${programKey}:${ex.id}`}
+              ex={ex}
+              index={idx}
+              onStartRest={startRest}
+              onProgress={updateExProgress}
+            />
           ))}
         </div>
       )}
 
       {mode === "history" && <HistoryView />}
+
+      {restTimer && (
+        <RestTimerOverlay
+          state={restTimer}
+          onAdjust={adjustRest}
+          onClose={closeRest}
+        />
+      )}
     </div>
   );
 }
