@@ -380,6 +380,34 @@ function ExerciseCard({ ex, index, onStartRest, onProgress }) {
 
 const DAY_ACCENT = { push: "var(--rust)", pull: "var(--olive)", legs: "#c99a4a" };
 
+// Форматирование подходов упражнения в компактную строку
+function formatSets(rows) {
+  if (!rows || rows.length === 0) return "—";
+  const clean = rows.filter(r => r.weight !== "" || r.reps !== "");
+  if (clean.length === 0) return "—";
+
+  const weights = clean.map(r => (r.weight === "" || r.weight == null) ? "—" : String(r.weight));
+  const reps = clean.map(r => (r.reps === "" || r.reps == null) ? "—" : String(r.reps));
+  const allWeightsSame = weights.every(w => w === weights[0]);
+  const allRepsSame = reps.every(r => r === reps[0]);
+  const n = clean.length;
+
+  if (allWeightsSame && allRepsSame) {
+    // 60 кг × 10 (×4)
+    return `${weights[0]} кг × ${reps[0]}` + (n > 1 ? ` (×${n})` : "");
+  }
+  if (allWeightsSame) {
+    // 60 кг × 10·9·8·8
+    return `${weights[0]} кг × ${reps.join("·")}`;
+  }
+  if (allRepsSame) {
+    // 60·55·55·50 кг × 10
+    return `${weights.join("·")} кг × ${reps[0]}`;
+  }
+  // Разное всё → пары: 60×10 · 55×8 · 55×8
+  return clean.map((r, i) => `${weights[i]}×${reps[i]}`).join(" · ") + " кг";
+}
+
 function SessionCard({ date, dayType, entries, plannedTotal }) {
   const [open, setOpen] = React.useState(false);
   const totalSets = entries.reduce((s, e) => s + e.rows.length, 0);
@@ -390,6 +418,7 @@ function SessionCard({ date, dayType, entries, plannedTotal }) {
   const meta = DAY_META[dayType];
   const upCount = entries.filter(e => e.delta !== null && e.delta > 0).length;
   const downCount = entries.filter(e => e.delta !== null && e.delta < 0).length;
+  const completionPct = plannedTotal > 0 ? Math.min(100, Math.round((totalSets / plannedTotal) * 100)) : 0;
 
   return (
     <div className="sess-card">
@@ -402,32 +431,36 @@ function SessionCard({ date, dayType, entries, plannedTotal }) {
             {downCount > 0 && <span className="sess-badge sess-badge--down">▼{downCount}</span>}
           </div>
           <div className="sess-sub">
-            {meta ? meta.label : "Тренировка"} · {entries.length} упр. · {totalSets}/{plannedTotal} сетов
-            {volume > 0 ? ` · ${Math.round(volume)} кг объём` : ""}
+            <span className="sess-tag">{meta ? meta.label : "Тренировка"}</span>
+            <span className="sess-metric">{entries.length} упр.</span>
+            <span className={`sess-metric ${completionPct === 100 ? "sess-metric--full" : ""}`}>
+              {totalSets}/{plannedTotal}
+            </span>
+            {volume > 0 && <span className="sess-metric sess-metric--vol">{Math.round(volume).toLocaleString('ru-RU')} кг</span>}
           </div>
         </div>
         <div className={`chev ${open ? "chev--open" : ""}`}>▾</div>
       </div>
       {open && (
         <div className="sess-body">
-          {entries.map((e) => (
-            <div className="sess-ex" key={e.exId}>
-              <div className="sess-ex-name">
-                {e.name}
-                {e.delta !== null && (
-                  <span className={`delta ${e.delta > 0 ? "delta--up" : e.delta < 0 ? "delta--down" : "delta--flat"}`}>
-                    {e.delta > 0 ? `▲ +${e.delta}кг` : e.delta < 0 ? `▼ ${e.delta}кг` : "= вес"}
-                  </span>
-                )}
+          {entries.map((e) => {
+            const setsLabel = formatSets(e.rows);
+            const dlt = e.delta;
+            const dltCls = dlt === null ? "" : dlt > 0 ? "delta--up" : dlt < 0 ? "delta--down" : "delta--flat";
+            const dltText = dlt === null ? "" : dlt > 0 ? `+${dlt}` : dlt < 0 ? `${dlt}` : "=";
+            return (
+              <div className="sess-ex-row" key={e.exId}>
+                <div className="sess-ex-line1">
+                  <span className="sess-ex-name-compact">{e.name}</span>
+                  {dlt !== null && <span className={`delta-tag ${dltCls}`}>{dltText}</span>}
+                </div>
+                <div className="sess-ex-line2">
+                  <span className="sess-ex-sets-compact">{setsLabel}</span>
+                  <span className="sess-ex-count">{e.rows.length}/{e.plannedSets}</span>
+                </div>
               </div>
-              <div className="sess-ex-sets">
-                {e.rows.map((r, i) => (
-                  <span key={i} className="last-chip">{r.weight || "—"}кг×{r.reps || "—"}</span>
-                ))}
-                <span className="sess-ex-frac">{e.rows.length}/{e.plannedSets}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -514,6 +547,8 @@ function HistoryView() {
   const [loading, setLoading] = React.useState(true);
   const [sessions, setSessions] = React.useState([]);
   const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [], progress: { up: 0, down: 0, flat: 0 } });
+  const [showAllSessions, setShowAllSessions] = React.useState(false);
+  const SESSIONS_PREVIEW = 8;
 
   React.useEffect(() => {
     let mounted = true;
@@ -730,9 +765,14 @@ function HistoryView() {
 
       <div className="hist-block-title">Все тренировки</div>
       <div className="sess-list">
-        {sessions.map((s) => (
+        {(showAllSessions ? sessions : sessions.slice(0, SESSIONS_PREVIEW)).map((s) => (
           <SessionCard key={s.date} date={s.date} dayType={s.dayType} entries={s.entries} plannedTotal={s.plannedTotal} />
         ))}
+        {!showAllSessions && sessions.length > SESSIONS_PREVIEW && (
+          <button className="btn-show-more" onClick={() => setShowAllSessions(true)}>
+            Показать все ({sessions.length})
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1092,26 +1132,44 @@ function WorkoutApp() {
         .detail-chip { background: var(--surface2); padding: 3px 6px; border-radius: 3px; font-size: 11px; }
 
         .sess-list { }
-        .sess-card { margin-bottom: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+        .sess-card { margin-bottom: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
         .sess-head { padding: 12px; display: flex; gap: 12px; align-items: center; cursor: pointer; transition: background 0.15s ease; }
         .sess-head:active { background: rgba(255,255,255,0.02); }
-        .sess-daydot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-        .sess-headtext { flex: 1; }
+        .sess-daydot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; align-self: flex-start; margin-top: 6px; }
+        .sess-headtext { flex: 1; min-width: 0; }
         .sess-date { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .sess-badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+        .sess-badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; }
         .sess-badge--up { background: rgba(74,222,128,0.14); color: #4ade80; }
         .sess-badge--down { background: rgba(248,113,113,0.14); color: #f87171; }
-        .sess-sub { font-size: 12px; color: var(--chalk-dim); margin-top: 2px; }
+        .sess-sub { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; align-items: center; font-size: 11px; }
+        .sess-tag { font-family: 'Oswald', sans-serif; font-size: 10px; letter-spacing: 0.1em; padding: 2px 6px; border-radius: 3px; background: var(--surface2); color: var(--chalk); }
+        .sess-metric { color: var(--chalk-dim); font-variant-numeric: tabular-nums; }
+        .sess-metric--full { color: var(--olive); font-weight: 600; }
+        .sess-metric--vol { color: var(--chalk-dim); }
+        .sess-metric--vol::before { content: "· "; opacity: 0.5; }
 
-        .sess-body { padding: 12px; border-top: 1px solid var(--line); background: rgba(0,0,0,0.1); }
-        .sess-ex { margin-bottom: 8px; }
-        .sess-ex-name { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .sess-body { padding: 4px 12px 8px; border-top: 1px solid var(--line); background: rgba(0,0,0,0.10); }
+        [data-theme="light"] .sess-body { background: rgba(0,0,0,0.03); }
+        .sess-ex-row { padding: 8px 0; border-bottom: 1px dashed var(--line); }
+        .sess-ex-row:last-child { border-bottom: none; }
+        .sess-ex-line1 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+        .sess-ex-line2 { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 3px; font-size: 12px; }
+        .sess-ex-name-compact { font-size: 13px; font-weight: 600; color: var(--chalk); }
+        .sess-ex-sets-compact { color: var(--chalk-dim); font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+        .sess-ex-count { color: var(--chalk-dim); font-size: 10.5px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
         .delta { font-size: 11px; font-weight: 600; }
         .delta--up { color: #4ade80; }
         .delta--down { color: #f87171; }
         .delta--flat { color: var(--chalk-dim); }
-        .sess-ex-sets { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 11px; }
-        .sess-ex-frac { margin-left: auto; color: var(--chalk-dim); }
+        .delta-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        .delta-tag.delta--up { background: rgba(74,222,128,0.16); color: #4ade80; }
+        .delta-tag.delta--down { background: rgba(248,113,113,0.16); color: #f87171; }
+        .delta-tag.delta--flat { background: var(--surface2); color: var(--chalk-dim); }
+
+        .btn-show-more { width: 100%; padding: 12px; margin-top: 4px; background: transparent; border: 1px dashed var(--line); border-radius: 10px; color: var(--chalk-dim); font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .btn-show-more:hover { border-color: var(--rust); color: var(--rust); border-style: solid; }
+        .btn-show-more:active { transform: scale(0.98); }
       `}</style>
 
       <div className="header">
