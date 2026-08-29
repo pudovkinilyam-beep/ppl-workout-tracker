@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="PPL Тренировки" />
 <title>Программа тренировок — Push / Pull / Legs</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<meta name="theme-color" content="#15130f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <style>
   html, body { margin: 0; padding: 0; background: #15130f; transition: background 0.2s ease; }
@@ -189,9 +193,20 @@ function ExerciseCard({ ex, index, onStartRest, onProgress }) {
     return () => { mounted = false; };
   }, [ex.id]);
 
-  // Сообщаем родителю о прогрессе
+  // Сообщаем родителю о прогрессе (кол-во выполненных подходов + объём кг×повторы)
   React.useEffect(() => {
-    if (onProgress) onProgress(ex.id, rows.filter(r => r.done).length);
+    if (!onProgress) return;
+    let volume = 0;
+    let done = 0;
+    rows.forEach(r => {
+      if (r.done) {
+        done++;
+        const w = parseFloat(r.weight) || 0;
+        const reps = parseFloat(r.reps) || 0;
+        volume += w * reps;
+      }
+    });
+    onProgress(ex.id, { done, volume });
   }, [rows, ex.id, onProgress]);
 
   const updateRow = (i, field, val) => {
@@ -289,10 +304,24 @@ function ExerciseCard({ ex, index, onStartRest, onProgress }) {
 
           {lastSession && (
             <div className="ex-last">
-              Прошлый раз ({lastSession.date.slice(5)}):{" "}
-              {lastSession.rows.map((r, i) => (
-                <span key={i} className="last-chip">{r.weight || "—"}кг×{r.reps || "—"}</span>
-              ))}
+              <div className="ex-last-row">
+                <span>Прошлый раз ({lastSession.date.slice(5)}):</span>
+                <button className="btn-fill" onClick={() => {
+                  setRows(prev => prev.map((r, i) => {
+                    if (r.done) return r; // не перезаписываем уже отмеченные
+                    const src = lastSession.rows[i];
+                    return src ? { weight: src.weight || "", reps: src.reps || "", done: false } : r;
+                  }));
+                  setSaved(false);
+                }}>
+                  Как в прошлый раз
+                </button>
+              </div>
+              <div className="ex-last-chips">
+                {lastSession.rows.map((r, i) => (
+                  <span key={i} className="last-chip">{r.weight || "—"}кг×{r.reps || "—"}</span>
+                ))}
+              </div>
             </div>
           )}
 
@@ -597,6 +626,44 @@ function HistoryView() {
     );
   }
 
+  const exportBackup = async () => {
+    try {
+      const listing = await window.storage.list("log:", false);
+      const keys = (listing && listing.keys) ? listing.keys : [];
+      const entries = {};
+      for (const k of keys) {
+        const r = await window.storage.get(k, false);
+        if (r) entries[k] = r.value;
+      }
+      // Также сохраню настройки
+      const settings = {};
+      try {
+        const t = localStorage.getItem("theme");
+        const p = localStorage.getItem("activeProgram");
+        if (t) settings.theme = t;
+        if (p) settings.activeProgram = p;
+      } catch {}
+      const payload = {
+        app: "ppl-workout-tracker",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        settings,
+        entries,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dt = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `ppl-backup-${dt}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    } catch (e) {
+      alert("Не удалось создать бэкап: " + e.message);
+    }
+  };
+
   const today = new Date();
   const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -613,6 +680,10 @@ function HistoryView() {
           <div className="stat-label">на этой неделе</div>
         </div>
       </div>
+
+      <button className="btn-export" onClick={exportBackup}>
+        ↓ Скачать бэкап истории (JSON)
+      </button>
 
       {(stats.progress.up + stats.progress.down + stats.progress.flat) > 0 && (
         <>
@@ -671,6 +742,30 @@ function RestTimerOverlay({ state, onAdjust, onClose }) {
   const { remaining, total, exName } = state;
   const finished = remaining <= 0;
   const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+
+  // Wake Lock — не даём экрану гаснуть пока идёт таймер
+  React.useEffect(() => {
+    let lock = null;
+    let released = false;
+    const acquire = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          lock = await navigator.wakeLock.request("screen");
+        }
+      } catch (e) { /* silent — не все браузеры поддерживают */ }
+    };
+    acquire();
+    // Пере-запрос при возврате в вкладку (экран мог заблокироваться)
+    const onVis = () => {
+      if (document.visibilityState === "visible" && !released) acquire();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      released = true;
+      document.removeEventListener("visibilitychange", onVis);
+      if (lock) lock.release().catch(() => {});
+    };
+  }, []);
 
   // Автозакрытие через 5 секунд после нуля
   React.useEffect(() => {
@@ -740,9 +835,13 @@ function WorkoutApp() {
   const restIntervalRef = React.useRef(null);
 
   // Прогресс дня: { exId: doneCount }
-  const [dayProgress, setDayProgress] = React.useState({});
-  const updateExProgress = React.useCallback((exId, done) => {
-    setDayProgress(p => (p[exId] === done ? p : { ...p, [exId]: done }));
+  const [dayProgress, setDayProgress] = React.useState({}); // { exId: { done, volume } }
+  const updateExProgress = React.useCallback((exId, data) => {
+    setDayProgress(p => {
+      const cur = p[exId];
+      if (cur && cur.done === data.done && cur.volume === data.volume) return p;
+      return { ...p, [exId]: data };
+    });
   }, []);
 
   React.useEffect(() => {
@@ -791,7 +890,8 @@ function WorkoutApp() {
 
   // Прогресс тренировки: подходов сделано / всего в текущем дне
   const plannedSetsInDay = exercises.reduce((s, ex) => s + (parseInt(ex.sets, 10) || 0), 0);
-  const doneSetsInDay = exercises.reduce((s, ex) => s + (dayProgress[ex.id] || 0), 0);
+  const doneSetsInDay = exercises.reduce((s, ex) => s + (dayProgress[ex.id]?.done || 0), 0);
+  const volumeInDay = exercises.reduce((s, ex) => s + (dayProgress[ex.id]?.volume || 0), 0);
 
   return (
     <div className="app">
@@ -909,6 +1009,11 @@ function WorkoutApp() {
 
         .ex-instr { font-size: 12px; line-height: 1.5; color: var(--chalk-dim); margin: 12px 0; }
         .ex-last { font-size: 12px; color: var(--chalk-dim); margin-bottom: 12px; }
+        .ex-last-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .ex-last-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+        .btn-fill { padding: 5px 10px; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--rust); font-size: 11px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; white-space: nowrap; transition: all 0.15s ease; }
+        .btn-fill:hover { border-color: var(--rust); background: var(--rust-tint); }
+        .btn-fill:active { transform: scale(0.94); }
         .last-chip { display: inline-block; background: var(--surface2); padding: 4px 8px; border-radius: 4px; margin-right: 6px; margin-bottom: 4px; }
 
         .set-table { margin: 12px 0; font-size: 13px; }
@@ -934,6 +1039,10 @@ function WorkoutApp() {
         .hist { padding: 20px; }
         .hist-empty { padding: 40px 20px; text-align: center; color: var(--chalk-dim); font-size: 14px; line-height: 1.6; }
         .hist-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+
+        .btn-export { width: 100%; padding: 12px; background: transparent; border: 1px dashed var(--line); border-radius: 10px; color: var(--chalk-dim); font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; margin-bottom: 20px; transition: all 0.15s ease; }
+        .btn-export:hover { border-color: var(--rust); border-style: solid; color: var(--rust); }
+        .btn-export:active { transform: scale(0.98); }
 
         .progress-summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .prog-cell { padding: 12px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); text-align: center; }
@@ -1059,6 +1168,7 @@ function WorkoutApp() {
           </div>
           <div className="day-progress-label">
             {doneSetsInDay}/{plannedSetsInDay} подходов
+            {volumeInDay > 0 && ` · ${Math.round(volumeInDay).toLocaleString('ru-RU')} кг объём`}
             {doneSetsInDay === plannedSetsInDay && plannedSetsInDay > 0 && " · тренировка завершена 🔥"}
           </div>
         </div>
