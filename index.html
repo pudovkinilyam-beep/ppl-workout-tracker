@@ -179,10 +179,11 @@ function ExPhoto({ src, alt, className }) {
 function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitute, onClearSub }) {
   const numSets = parseInt(ex.sets, 10);
   const [rows, setRows] = React.useState(
-    Array.from({ length: numSets }, () => ({ weight: "", reps: "", done: false }))
+    Array.from({ length: numSets }, () => ({ weight: "", reps: "", done: false, warmup: false }))
   );
   const [lastSession, setLastSession] = React.useState(null);
-  const [maxWeightEver, setMaxWeightEver] = React.useState(null); // рекорд по этому упражнению
+  const [maxWeightEver, setMaxWeightEver] = React.useState(null); // рекорд по этому упражнению (без разминочных)
+  const [suggestedWeight, setSuggestedWeight] = React.useState(null); // умный подсказчик
   const [open, setOpen] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [photoPhase, setPhotoPhase] = React.useState(0);
@@ -198,23 +199,41 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitu
           setRows(log.rows);
           setSaved(true);
         }
-        // Считаем максимум по истории
         if (Array.isArray(log.history)) {
           let mx = 0;
           log.history.forEach(h => {
             (h.rows || []).forEach(r => {
+              if (r.warmup) return; // разминочные не считаем PR
               const w = parseFloat(r.weight);
               if (!isNaN(w) && w > mx) mx = w;
             });
           });
           setMaxWeightEver(mx > 0 ? mx : null);
+
+          // Умный подсказчик: если в прошлой рабочей сессии все подходы (кроме разминки)
+          // сделаны с минимальным целевым числом повторов — предлагаем +2.5 кг
+          const last = log.history[log.history.length - 1];
+          if (last) {
+            const workRows = (last.rows || []).filter(r => !r.warmup);
+            const repsRange = (ex.reps || "").match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
+            const minReps = repsRange ? parseInt(repsRange[1], 10) : null;
+            if (workRows.length && minReps !== null) {
+              const allHit = workRows.every(r => (parseFloat(r.reps) || 0) >= minReps);
+              const sameWeight = workRows.every(r => (parseFloat(r.weight) || 0) === (parseFloat(workRows[0].weight) || 0));
+              const w = parseFloat(workRows[0].weight);
+              if (allHit && sameWeight && !isNaN(w) && w > 0) {
+                const inc = w >= 30 ? 2.5 : 1;
+                setSuggestedWeight(w + inc);
+              }
+            }
+          }
         }
       }
     })();
     return () => { mounted = false; };
-  }, [ex.id]);
+  }, [ex.id, ex.reps]);
 
-  // Сообщаем родителю о прогрессе (кол-во выполненных подходов + объём кг×повторы)
+  // Сообщаем родителю о прогрессе (не считаем разминочные в объём)
   React.useEffect(() => {
     if (!onProgress) return;
     let volume = 0;
@@ -222,6 +241,7 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitu
     rows.forEach(r => {
       if (r.done) {
         done++;
+        if (r.warmup) return;
         const w = parseFloat(r.weight) || 0;
         const reps = parseFloat(r.reps) || 0;
         volume += w * reps;
@@ -242,11 +262,12 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitu
   const toggleDone = (i) => {
     const wasDone = rows[i].done;
     updateRow(i, "done", !wasDone);
-    // Автостарт таймера отдыха при отметке подхода (не последнего, не при снятии галки)
     if (!wasDone && ex.rest > 0 && i < numSets - 1 && onStartRest) {
       onStartRest(ex.rest, ex.name);
     }
   };
+
+  const toggleWarmup = (i) => updateRow(i, "warmup", !rows[i].warmup);
 
   const handleSave = async () => {
     const existing = await loadLog(ex.id);
@@ -389,14 +410,48 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitu
             </div>
             {rows.map((row, i) => {
               const w = parseFloat(row.weight);
-              const isPR = !isNaN(w) && maxWeightEver !== null && w > maxWeightEver;
+              const isPR = !isNaN(w) && maxWeightEver !== null && !row.warmup && w > maxWeightEver;
+              let weightHint;
+              if (row.warmup) {
+                weightHint = lastSession?.rows?.[i]?.warmup ? lastSession.rows[i].weight : "разм.";
+              } else if (suggestedWeight !== null && !lastSession?.rows?.[i]?.warmup) {
+                weightHint = `${suggestedWeight} ↑`;
+              } else {
+                weightHint = lastSession?.rows?.[i]?.weight || (ex.recMax ? `~${Math.round((ex.recMin + ex.recMax) / 2)}` : "—");
+              }
               return (
-                <div className={`set-row ${row.done ? "set-row--done" : ""}`} key={i}>
-                  <span className="set-idx">{i + 1}</span>
+                <div
+                  className={`set-row ${row.done ? "set-row--done" : ""} ${row.warmup ? "set-row--warmup" : ""}`}
+                  key={i}
+                  onTouchStart={(e) => {
+                    e.currentTarget.dataset.tx = e.touches[0].clientX;
+                    e.currentTarget.dataset.ty = e.touches[0].clientY;
+                  }}
+                  onTouchEnd={(e) => {
+                    const el = e.currentTarget;
+                    const tx = parseFloat(el.dataset.tx);
+                    const ty = parseFloat(el.dataset.ty);
+                    if (isNaN(tx)) return;
+                    const dx = e.changedTouches[0].clientX - tx;
+                    const dy = e.changedTouches[0].clientY - ty;
+                    if (Math.abs(dx) > 55 && Math.abs(dy) < 30) {
+                      if (dx > 0 && !row.done) toggleDone(i);
+                      else if (dx < 0 && row.done) toggleDone(i);
+                    }
+                  }}
+                >
+                  <span className="set-idx">
+                    {i + 1}
+                    <button
+                      className={`warmup-toggle ${row.warmup ? "warmup-toggle--on" : ""}`}
+                      onClick={() => toggleWarmup(i)}
+                      title={row.warmup ? "Убрать разминку" : "Отметить как разминку"}
+                    >W</button>
+                  </span>
                   <input
                     type="number" inputMode="decimal"
                     className={isPR ? "input--pr" : ""}
-                    placeholder={lastSession?.rows?.[i]?.weight || (ex.recMax ? `~${Math.round((ex.recMin + ex.recMax) / 2)}` : "—")}
+                    placeholder={weightHint}
                     value={row.weight}
                     onChange={(e) => updateRow(i, "weight", e.target.value)}
                   />
@@ -638,6 +693,32 @@ function SessionCard({ date, dayType, entries, plannedTotal, onSessionUpdated })
   );
 }
 
+function PrTrend({ timeline }) {
+  if (!timeline || timeline.length < 2) {
+    return <div className="pr-trend pr-trend--empty">—</div>;
+  }
+  const recent = timeline.slice(-14);
+  const min = Math.min(...recent.map(r => r.w));
+  const max = Math.max(...recent.map(r => r.w));
+  const range = max - min || 1;
+  const W = 90, H = 30;
+  const step = W / (recent.length - 1);
+  const pts = recent.map((r, i) => {
+    const x = i * step;
+    const y = H - ((r.w - min) / range) * H;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const first = recent[0].w;
+  const last = recent[recent.length - 1].w;
+  const diff = last - first;
+  const color = diff > 0 ? "#4ade80" : diff < 0 ? "#f87171" : "var(--chalk-dim)";
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="pr-trend" preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 function BodyLogPanel() {
   const [entries, setEntries] = React.useState(() => loadBodyLog());
   const [open, setOpen] = React.useState(false);
@@ -848,7 +929,7 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
 function HistoryView() {
   const [loading, setLoading] = React.useState(true);
   const [sessions, setSessions] = React.useState([]);
-  const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [], progress: { up: 0, down: 0, flat: 0 } });
+  const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [], progress: { up: 0, down: 0, flat: 0 }, prs: [] });
   const [showAllSessions, setShowAllSessions] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(0);
   const SESSIONS_PREVIEW = 8;
@@ -949,9 +1030,61 @@ function HistoryView() {
         else flat_cnt++;
       });
 
+      // Персональные рекорды: макс. вес по упражнению (без разминочных)
+      const prs = [];
+      const trendData = {};
+      Object.entries(byEx).forEach(([exId, arr]) => {
+        let bestW = 0, bestReps = 0, bestDate = null;
+        const timeline = [];
+        arr.forEach(s => {
+          let sesMaxW = 0;
+          (s.rows || []).forEach(r => {
+            if (r.warmup) return;
+            const w = parseFloat(r.weight);
+            const reps = parseFloat(r.reps);
+            if (isNaN(w) || w <= 0) return;
+            if (w > sesMaxW) sesMaxW = w;
+            if (w > bestW || (w === bestW && reps > bestReps)) {
+              bestW = w; bestReps = reps || bestReps; bestDate = s.date;
+            }
+          });
+          if (sesMaxW > 0) timeline.push({ date: s.date, w: sesMaxW });
+        });
+        if (bestW > 0) {
+          const meta = metaByEx[exId] || {};
+          prs.push({ exId, name: meta.name || exId, bestW, bestReps, bestDate, timeline });
+        }
+      });
+      prs.sort((a, b) => (b.bestDate || "").localeCompare(a.bestDate || ""));
+
+      // Деload-подсказка: считаем недельный объём за последние 4 недели
+      // Если 4 недели подряд объём растёт без падения — предлагаем разгрузочную
+      const weeklyVolumeMap = {};
+      Object.values(byEx).forEach(arr => {
+        arr.forEach(s => {
+          const wk = weekKey(s.date);
+          let vol = 0;
+          (s.rows || []).forEach(r => {
+            if (r.warmup) return;
+            const w = parseFloat(r.weight) || 0;
+            const reps = parseFloat(r.reps) || 0;
+            vol += w * reps;
+          });
+          weeklyVolumeMap[wk] = (weeklyVolumeMap[wk] || 0) + vol;
+        });
+      });
+      const wKeys = Object.keys(weeklyVolumeMap).sort();
+      const lastFour = wKeys.slice(-4).map(k => weeklyVolumeMap[k]);
+      let deloadHint = false;
+      if (lastFour.length === 4 && lastFour[0] > 0) {
+        const monotonic = lastFour[1] >= lastFour[0] && lastFour[2] >= lastFour[1] && lastFour[3] >= lastFour[2];
+        const growthOverall = lastFour[3] > lastFour[0] * 1.15;
+        deloadHint = monotonic && growthOverall;
+      }
+
       if (mounted) {
         setSessions(sessionsBuilt);
-        setStats({ total: dates.length, thisWeek, buckets: wBuckets, progress: { up, down, flat: flat_cnt } });
+        setStats({ total: dates.length, thisWeek, buckets: wBuckets, progress: { up, down, flat: flat_cnt }, prs, deloadHint });
         setLoading(false);
       }
     })();
@@ -1137,6 +1270,37 @@ function HistoryView() {
 
       <div className="hist-block-title">Дневник самочувствия</div>
       <BodyLogPanel />
+
+      {stats.deloadHint && (
+        <div className="deload-banner">
+          <div className="deload-icon">💤</div>
+          <div className="deload-text">
+            <div className="deload-title">Пора разгрузиться</div>
+            <div className="deload-desc">Объём растёт 4 недели подряд. Рекомендую <b>деload</b>: −30% веса или −30% подходов на этой неделе, потом вернёшь и пробьёшь плато.</div>
+          </div>
+        </div>
+      )}
+
+      {stats.prs && stats.prs.length > 0 && (
+        <>
+          <div className="hist-block-title">Личные рекорды</div>
+          <div className="pr-list">
+            {stats.prs.slice(0, 12).map(pr => (
+              <div className="pr-item" key={pr.exId}>
+                <div className="pr-main">
+                  <div className="pr-name">{pr.name}</div>
+                  <div className="pr-value">
+                    <span className="pr-val-num">{pr.bestW}</span>
+                    <span className="pr-val-unit"> кг × {pr.bestReps || "?"}</span>
+                  </div>
+                  <div className="pr-date">{fmtDateRu(pr.bestDate)}</div>
+                </div>
+                <PrTrend timeline={pr.timeline} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="hist-block-title">Все тренировки</div>
       <div className="sess-list">
@@ -1443,6 +1607,12 @@ function WorkoutApp() {
   });
   const [day, setDay] = React.useState("push");
   const [mode, setMode] = React.useState("train");
+  const [compactMode, setCompactMode] = React.useState(() => {
+    try { return localStorage.getItem("compactMode") === "1"; } catch { return false; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem("compactMode", compactMode ? "1" : "0"); } catch {}
+  }, [compactMode]);
 
   // Автовыбор следующего дня PPL по последней сохранённой тренировке
   const [suggestedDay, setSuggestedDay] = React.useState(null);
@@ -1931,6 +2101,45 @@ function WorkoutApp() {
         .star { background: transparent; border: none; color: var(--chalk-dim); font-size: 22px; cursor: pointer; padding: 2px; -webkit-appearance: none; appearance: none; transition: color 0.15s ease; }
         .star--on { color: var(--rust); }
 
+        /* Compact mode toggle */
+        .day-progress-row { display: flex; align-items: center; gap: 10px; }
+        .compact-toggle { background: transparent; border: 1px solid var(--line); border-radius: 6px; width: 30px; height: 22px; color: var(--chalk-dim); font-size: 12px; cursor: pointer; -webkit-appearance: none; appearance: none; padding: 0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s ease; }
+        .compact-toggle:hover { border-color: var(--rust); color: var(--rust); }
+        .compact-toggle--on { background: var(--rust-tint); border-color: var(--rust); color: var(--rust); }
+
+        /* Compact list mode */
+        .ex-list--compact .ex-card { margin: 6px 20px; }
+        .ex-list--compact .ex-thumb { width: 32px; height: 32px; }
+        .ex-list--compact .ex-head { padding: 8px 10px; gap: 8px; }
+        .ex-list--compact .ex-name { font-size: 13px; }
+        .ex-list--compact .ex-meta { font-size: 10px; }
+        .ex-list--compact .ex-progress { font-size: 12px; }
+
+        /* Warmup toggle */
+        .warmup-toggle { background: transparent; border: 1px solid var(--line); border-radius: 999px; width: 20px; height: 20px; color: var(--chalk-dim); font-size: 10px; font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none; padding: 0; margin-left: 4px; line-height: 1; transition: all 0.15s ease; }
+        .warmup-toggle--on { background: rgba(163,154,137,0.2); border-color: var(--chalk-dim); color: var(--chalk-dim); }
+        .set-row--warmup input { opacity: 0.55; font-style: italic; }
+        .set-row--warmup .set-idx { opacity: 0.55; }
+
+        /* Deload banner */
+        .deload-banner { display: flex; gap: 12px; padding: 14px; background: rgba(163,154,137,0.10); border: 1px solid rgba(163,154,137,0.4); border-radius: 12px; margin-bottom: 20px; }
+        .deload-icon { font-size: 28px; flex-shrink: 0; }
+        .deload-text { flex: 1; }
+        .deload-title { font-family: 'Oswald', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--chalk); margin-bottom: 4px; }
+        .deload-desc { font-size: 12px; color: var(--chalk-dim); line-height: 1.45; }
+
+        /* Personal records */
+        .pr-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+        .pr-item { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+        .pr-main { flex: 1; min-width: 0; }
+        .pr-name { font-size: 12px; font-weight: 600; color: var(--chalk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pr-value { margin-top: 2px; }
+        .pr-val-num { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 700; color: var(--rust); }
+        .pr-val-unit { font-size: 11px; color: var(--chalk-dim); }
+        .pr-date { font-size: 10px; color: var(--chalk-dim); margin-top: 2px; }
+        .pr-trend { width: 90px; height: 30px; flex-shrink: 0; }
+        .pr-trend--empty { color: var(--chalk-dim); font-size: 12px; text-align: center; padding-top: 8px; }
+
         .sess-ex-line1-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .sess-edit-btn { background: transparent; border: none; color: var(--chalk-dim); font-size: 15px; cursor: pointer; padding: 2px 6px; line-height: 1; -webkit-appearance: none; appearance: none; border-radius: 4px; transition: all 0.15s ease; }
         .sess-edit-btn:hover { color: var(--rust); background: var(--rust-tint); }
@@ -1994,11 +2203,19 @@ function WorkoutApp() {
 
       {mode === "train" && plannedSetsInDay > 0 && (
         <div className="day-progress">
-          <div className="day-progress-bar">
-            <div
-              className="day-progress-fill"
-              style={{ width: `${Math.min(100, (doneSetsInDay / plannedSetsInDay) * 100)}%` }}
-            />
+          <div className="day-progress-row">
+            <div className="day-progress-bar">
+              <div
+                className="day-progress-fill"
+                style={{ width: `${Math.min(100, (doneSetsInDay / plannedSetsInDay) * 100)}%` }}
+              />
+            </div>
+            <button
+              className={`compact-toggle ${compactMode ? "compact-toggle--on" : ""}`}
+              onClick={() => setCompactMode(v => !v)}
+              title={compactMode ? "Развернуть карточки" : "Компактный список"}
+              aria-label="Компактный режим"
+            >{compactMode ? "▤" : "▦"}</button>
           </div>
           <div className="day-progress-label">
             {doneSetsInDay}/{plannedSetsInDay} подходов
@@ -2018,7 +2235,7 @@ function WorkoutApp() {
       </div>
 
       {mode === "train" && (
-        <div className="ex-list">
+        <div className={`ex-list ${compactMode ? "ex-list--compact" : ""}`}>
           {programExercises.map((ex, idx) => (
             <ExerciseCard
               key={`${programKey}:${ex._origId || ex.id}`}
