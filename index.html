@@ -119,6 +119,27 @@ function fmtClock(s) {
   return `${m}:${r}`;
 }
 
+function loadNotes() {
+  try { return JSON.parse(localStorage.getItem("sessionNotes") || "{}"); } catch { return {}; }
+}
+function saveNote(date, text) {
+  try {
+    const all = loadNotes();
+    if (text && text.trim()) all[date] = text.trim(); else delete all[date];
+    localStorage.setItem("sessionNotes", JSON.stringify(all));
+  } catch {}
+}
+function loadBodyLog() {
+  try { return JSON.parse(localStorage.getItem("bodyLog") || "{}"); } catch { return {}; }
+}
+function saveBodyEntry(date, entry) {
+  try {
+    const all = loadBodyLog();
+    if (entry) all[date] = entry; else delete all[date];
+    localStorage.setItem("bodyLog", JSON.stringify(all));
+  } catch {}
+}
+
 function youtubeSearchUrl(nameEn) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(nameEn + " exercise tutorial form")}`;
 }
@@ -155,7 +176,7 @@ function ExPhoto({ src, alt, className }) {
   return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setFailed(true)} />;
 }
 
-function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete }) {
+function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete, onSubstitute, onClearSub }) {
   const numSets = parseInt(ex.sets, 10);
   const [rows, setRows] = React.useState(
     Array.from({ length: numSets }, () => ({ weight: "", reps: "", done: false }))
@@ -257,6 +278,7 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete }) {
           <div className="ex-name">
             {ex.name}
             {ex.isCustom && <span className="ex-custom-badge">своё</span>}
+            {ex._substituted && <span className="ex-sub-badge">замена</span>}
           </div>
           <div className="ex-meta">
             <span className="ex-target">{ex.equipment === "any" ? "кардио" : (TARGET_RU[ex.target] || ex.target)}</span>
@@ -266,6 +288,22 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete }) {
           </div>
         </div>
         <div className="ex-progress">{doneCount}/{numSets}</div>
+        {onSubstitute && !ex._substituted && (
+          <button
+            className="ex-sub-btn"
+            onClick={(e) => { e.stopPropagation(); onSubstitute(); }}
+            aria-label="Заменить упражнение"
+            title="Заменить"
+          >⇄</button>
+        )}
+        {onClearSub && (
+          <button
+            className="ex-sub-btn ex-sub-btn--clear"
+            onClick={(e) => { e.stopPropagation(); onClearSub(); }}
+            aria-label="Вернуть исходное"
+            title="Вернуть исходное"
+          >↺</button>
+        )}
         {onDelete && (
           <button
             className="ex-del-btn"
@@ -297,9 +335,9 @@ function ExerciseCard({ ex, index, onStartRest, onProgress, onDelete }) {
                 ))}
               </div>
             )}
-            {ex.nameEn && (
-              <a className="video-link" href={youtubeSearchUrl(ex.nameEn)} target="_blank" rel="noopener noreferrer">
-                ▶ Видео техники на YouTube
+            {(ex.nameEn || ex.customVideo) && (
+              <a className="video-link" href={ex.customVideo || youtubeSearchUrl(ex.nameEn)} target="_blank" rel="noopener noreferrer">
+                ▶ Видео техники
               </a>
             )}
           </div>
@@ -432,6 +470,8 @@ function SessionCard({ date, dayType, entries, plannedTotal, onSessionUpdated })
   const [open, setOpen] = React.useState(false);
   const [editingExId, setEditingExId] = React.useState(null);
   const [editRows, setEditRows] = React.useState([]);
+  const [noteText, setNoteText] = React.useState(() => loadNotes()[date] || "");
+  const [noteEditing, setNoteEditing] = React.useState(false);
 
   const totalSets = entries.reduce((s, e) => s + e.rows.length, 0);
   const volume = entries.reduce(
@@ -502,6 +542,7 @@ function SessionCard({ date, dayType, entries, plannedTotal, onSessionUpdated })
               {totalSets}/{plannedTotal}
             </span>
             {volume > 0 && <span className="sess-metric sess-metric--vol">{Math.round(volume).toLocaleString('ru-RU')} кг</span>}
+            {noteText && <span className="sess-metric sess-metric--note" title={noteText}>✎</span>}
           </div>
         </div>
         <div className={`chev ${open ? "chev--open" : ""}`}>▾</div>
@@ -569,6 +610,134 @@ function SessionCard({ date, dayType, entries, plannedTotal, onSessionUpdated })
               </div>
             );
           })}
+          <div className="sess-note-block">
+            {!noteEditing ? (
+              <button className="sess-note-toggle" onClick={() => setNoteEditing(true)}>
+                {noteText ? "✎ " + noteText : "＋ Добавить заметку"}
+              </button>
+            ) : (
+              <div>
+                <textarea
+                  className="sess-note-input"
+                  placeholder="Как прошло? Самочувствие, техника, что попробовать в следующий раз…"
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  rows="3"
+                  autoFocus
+                />
+                <div className="sess-edit-actions">
+                  <button className="btn-modal btn-modal--cancel" onClick={() => { setNoteText(loadNotes()[date] || ""); setNoteEditing(false); }}>Отмена</button>
+                  <button className="btn-modal btn-modal--primary" onClick={() => { saveNote(date, noteText); setNoteEditing(false); }}>Сохранить</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BodyLogPanel() {
+  const [entries, setEntries] = React.useState(() => loadBodyLog());
+  const [open, setOpen] = React.useState(false);
+  const today = todayKey();
+  const todayEntry = entries[today] || {};
+  const [weight, setWeight] = React.useState(todayEntry.weight ?? "");
+  const [sleep, setSleep] = React.useState(todayEntry.sleep || 0);
+  const [mood, setMood] = React.useState(todayEntry.mood || 0);
+
+  const commit = () => {
+    const w = weight === "" ? null : parseFloat(weight);
+    const entry = { weight: (w !== null && !isNaN(w)) ? w : null, sleep: sleep || null, mood: mood || null };
+    if (!entry.weight && !entry.sleep && !entry.mood) {
+      saveBodyEntry(today, null);
+    } else {
+      saveBodyEntry(today, entry);
+    }
+    setEntries(loadBodyLog());
+    setOpen(false);
+  };
+
+  const dates = Object.keys(entries).sort();
+  const weightSeries = dates.filter(d => entries[d].weight != null).map(d => ({ date: d, w: entries[d].weight }));
+  const recent = weightSeries.slice(-14);
+  const currentW = weightSeries.length > 0 ? weightSeries[weightSeries.length - 1].w : null;
+  const prevW = weightSeries.length > 1 ? weightSeries[weightSeries.length - 2].w : null;
+  const diff = (currentW !== null && prevW !== null) ? (currentW - prevW) : null;
+
+  const spark = React.useMemo(() => {
+    if (recent.length < 2) return null;
+    const min = Math.min(...recent.map(r => r.w));
+    const max = Math.max(...recent.map(r => r.w));
+    const range = max - min || 1;
+    const W = 200, H = 40;
+    const step = W / (recent.length - 1);
+    const pts = recent.map((r, i) => {
+      const x = i * step;
+      const y = H - ((r.w - min) / range) * H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    return { pts, W, H };
+  }, [recent]);
+
+  return (
+    <div className="body-panel">
+      <div className="body-summary">
+        <div className="body-weight-block">
+          <div className="body-weight-val">{currentW !== null ? `${currentW} кг` : "—"}</div>
+          {diff !== null && (
+            <div className={`body-weight-diff ${diff > 0 ? "up" : diff < 0 ? "down" : "flat"}`}>
+              {diff > 0 ? `+${diff.toFixed(1)}` : diff < 0 ? diff.toFixed(1) : "="}
+            </div>
+          )}
+          <div className="body-weight-lbl">вес тела</div>
+        </div>
+        {spark && (
+          <svg viewBox={`0 0 ${spark.W} ${spark.H}`} className="body-spark" preserveAspectRatio="none">
+            <polyline points={spark.pts} fill="none" stroke="var(--rust)" strokeWidth="2" />
+          </svg>
+        )}
+      </div>
+
+      {!open ? (
+        <button className="btn-body-toggle" onClick={() => setOpen(true)}>
+          {(todayEntry.weight || todayEntry.sleep || todayEntry.mood) ? "✎ Обновить запись за сегодня" : "＋ Добавить запись за сегодня"}
+        </button>
+      ) : (
+        <div className="body-form">
+          <div className="form-field">
+            <label className="form-label">Вес тела, кг</label>
+            <input
+              type="number" step="0.1" inputMode="decimal"
+              className="form-input"
+              value={weight}
+              onChange={e => setWeight(e.target.value)}
+              placeholder="напр. 86.5"
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">Сон (1-5)</label>
+              <div className="stars">
+                {[1,2,3,4,5].map(n => (
+                  <button key={n} className={`star ${sleep >= n ? "star--on" : ""}`} onClick={() => setSleep(sleep === n ? 0 : n)}>★</button>
+                ))}
+              </div>
+            </div>
+            <div className="form-field">
+              <label className="form-label">Самочувствие (1-5)</label>
+              <div className="stars">
+                {[1,2,3,4,5].map(n => (
+                  <button key={n} className={`star ${mood >= n ? "star--on" : ""}`} onClick={() => setMood(mood === n ? 0 : n)}>★</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button className="btn-modal btn-modal--cancel" onClick={() => setOpen(false)}>Отмена</button>
+            <button className="btn-modal btn-modal--primary" onClick={commit}>Сохранить</button>
+          </div>
         </div>
       )}
     </div>
@@ -800,6 +969,40 @@ function HistoryView() {
     );
   }
 
+  const importBackup = async (file) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (data.app !== "ppl-workout-tracker") {
+        alert("Это не бэкап PPL Tracker. Проверь файл.");
+        return;
+      }
+      const entries = data.entries || {};
+      const count = Object.keys(entries).length;
+      if (!window.confirm(`Загрузить бэкап от ${(data.exportedAt || "").slice(0, 10) || "?"}\nЗаписей упражнений: ${count}\n\nТекущая история будет заменена. Продолжить?`)) return;
+      const current = await window.storage.list("log:", false);
+      const currentKeys = (current && current.keys) ? current.keys : [];
+      for (const k of currentKeys) {
+        if (!(k in entries)) await window.storage.delete(k, false);
+      }
+      for (const [k, v] of Object.entries(entries)) {
+        await window.storage.set(k, String(v), false);
+      }
+      try {
+        if (data.settings && data.settings.theme) localStorage.setItem("theme", data.settings.theme);
+        if (data.settings && data.settings.activeProgram) localStorage.setItem("activeProgram", data.settings.activeProgram);
+        if (data.notes) localStorage.setItem("sessionNotes", JSON.stringify(data.notes));
+        if (data.bodyLog) localStorage.setItem("bodyLog", JSON.stringify(data.bodyLog));
+        if (data.substitutions) localStorage.setItem("substitutions", JSON.stringify(data.substitutions));
+        if (data.customExercises) localStorage.setItem("customExercises", JSON.stringify(data.customExercises));
+      } catch {}
+      alert(`Загружено. Записей: ${count}. Страница будет перезагружена.`);
+      window.location.reload();
+    } catch (e) {
+      alert("Не удалось прочитать файл: " + e.message);
+    }
+  };
+
   const exportBackup = async () => {
     try {
       const listing = await window.storage.list("log:", false);
@@ -809,20 +1012,25 @@ function HistoryView() {
         const r = await window.storage.get(k, false);
         if (r) entries[k] = r.value;
       }
-      // Также сохраню настройки
       const settings = {};
+      let notes = null, bodyLog = null, substitutions = null, customExercises = null;
       try {
         const t = localStorage.getItem("theme");
         const p = localStorage.getItem("activeProgram");
         if (t) settings.theme = t;
         if (p) settings.activeProgram = p;
+        const n = localStorage.getItem("sessionNotes"); if (n) notes = JSON.parse(n);
+        const b = localStorage.getItem("bodyLog"); if (b) bodyLog = JSON.parse(b);
+        const s = localStorage.getItem("substitutions"); if (s) substitutions = JSON.parse(s);
+        const c = localStorage.getItem("customExercises"); if (c) customExercises = JSON.parse(c);
       } catch {}
       const payload = {
         app: "ppl-workout-tracker",
-        version: 1,
+        version: 2,
         exportedAt: new Date().toISOString(),
         settings,
         entries,
+        notes, bodyLog, substitutions, customExercises,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -851,9 +1059,22 @@ function HistoryView() {
         </div>
       </div>
 
-      <button className="btn-export" onClick={exportBackup}>
-        ↓ Скачать бэкап истории (JSON)
-      </button>
+      <div className="backup-row">
+        <button className="btn-export" onClick={exportBackup}>↓ Скачать бэкап</button>
+        <label className="btn-export btn-export--import">
+          ↑ Загрузить бэкап
+          <input
+            type="file"
+            accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files && e.target.files[0];
+              if (f) importBackup(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
 
       {(stats.progress.up + stats.progress.down + stats.progress.flat) > 0 && (
         <>
@@ -914,6 +1135,9 @@ function HistoryView() {
         );
       })()}
 
+      <div className="hist-block-title">Дневник самочувствия</div>
+      <BodyLogPanel />
+
       <div className="hist-block-title">Все тренировки</div>
       <div className="sess-list">
         {(showAllSessions ? sessions : sessions.slice(0, SESSIONS_PREVIEW)).map((s) => (
@@ -944,6 +1168,8 @@ function AddExerciseForm({ defaultDay, onCancel, onAdd }) {
   const [reps, setReps] = React.useState("10-12");
   const [rest, setRest] = React.useState(60);
   const [recNote, setRecNote] = React.useState("");
+  const [imageUrl, setImageUrl] = React.useState("");
+  const [videoUrl, setVideoUrl] = React.useState("");
 
   const canSubmit = name.trim().length > 0 && parseInt(sets, 10) > 0 && reps.trim().length > 0;
 
@@ -957,6 +1183,8 @@ function AddExerciseForm({ defaultDay, onCancel, onAdd }) {
       reps: reps.trim(),
       rest: Math.max(0, parseInt(rest, 10) || 0),
       recNote: recNote.trim(),
+      customImage: imageUrl.trim() || null,
+      customVideo: videoUrl.trim() || null,
     });
   };
 
@@ -1038,11 +1266,92 @@ function AddExerciseForm({ defaultDay, onCancel, onAdd }) {
           />
         </div>
 
+        <div className="form-field">
+          <label className="form-label">Ссылка на картинку (необязательно)</label>
+          <input
+            type="url"
+            className="form-input"
+            value={imageUrl}
+            onChange={e => setImageUrl(e.target.value)}
+            placeholder="https://..."
+          />
+        </div>
+
+        <div className="form-field">
+          <label className="form-label">Ссылка на видео техники (необязательно)</label>
+          <input
+            type="url"
+            className="form-input"
+            value={videoUrl}
+            onChange={e => setVideoUrl(e.target.value)}
+            placeholder="YouTube, Vimeo и т.п."
+          />
+        </div>
+
         <div className="modal-actions">
           <button className="btn-modal btn-modal--cancel" onClick={onCancel}>Отмена</button>
           <button className="btn-modal btn-modal--primary" onClick={handleSubmit} disabled={!canSubmit}>
             Добавить
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubstituteModal({ origId, dayType, allPrograms, customExercises, onCancel, onPick }) {
+  const [query, setQuery] = React.useState("");
+  const options = React.useMemo(() => {
+    const seen = new Set([origId]);
+    const out = [];
+    Object.entries(allPrograms).forEach(([pk, prog]) => {
+      (prog[dayType] || []).forEach(ex => {
+        if (!seen.has(ex.id)) { seen.add(ex.id); out.push({ ...ex, _source: pk }); }
+      });
+    });
+    customExercises.filter(x => x.dayType === dayType && !seen.has(x.id)).forEach(ex => {
+      out.push({ ...ex, _source: "custom" });
+    });
+    return out;
+  }, [origId, dayType, allPrograms, customExercises]);
+
+  const q = query.trim().toLowerCase();
+  const filtered = q === "" ? options : options.filter(ex =>
+    ex.name.toLowerCase().includes(q) ||
+    (TARGET_RU[ex.target] || ex.target).toLowerCase().includes(q)
+  );
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">Заменить упражнение</div>
+        <div className="modal-hint">Замена действует только на сегодня — программа не изменится</div>
+        <div className="form-field">
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Поиск по названию или группе мышц…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="sub-list">
+          {filtered.length === 0 && <div className="sub-empty">Ничего не найдено</div>}
+          {filtered.map(ex => (
+            <button key={ex.id} className="sub-item" onClick={() => onPick(ex)}>
+              <div className="sub-item-name">{ex.name}</div>
+              <div className="sub-item-meta">
+                <span>{TARGET_RU[ex.target] || ex.target}</span>
+                <span className="dot">·</span>
+                <span>{ex.sets}×{ex.reps}</span>
+                <span className="sub-src">{ex._source === "custom" ? "своё" : ex._source}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="modal-actions">
+          <button className="btn-modal btn-modal--cancel" onClick={onCancel}>Отмена</button>
         </div>
       </div>
     </div>
@@ -1134,6 +1443,42 @@ function WorkoutApp() {
   });
   const [day, setDay] = React.useState("push");
   const [mode, setMode] = React.useState("train");
+
+  // Автовыбор следующего дня PPL по последней сохранённой тренировке
+  const [suggestedDay, setSuggestedDay] = React.useState(null);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const listing = await window.storage.list("log:", false);
+        const keys = (listing && listing.keys) ? listing.keys : [];
+        let lastDate = null, lastDayType = null;
+        for (const k of keys) {
+          const r = await window.storage.get(k, false);
+          if (!r) continue;
+          try {
+            const log = JSON.parse(r.value);
+            if (Array.isArray(log.history) && log.meta && log.meta.dayType) {
+              for (const h of log.history) {
+                if (!lastDate || h.date > lastDate) {
+                  lastDate = h.date;
+                  lastDayType = log.meta.dayType;
+                }
+              }
+            }
+          } catch {}
+        }
+        if (!mounted || !lastDayType) return;
+        const today = new Date().toISOString().slice(0, 10);
+        if (lastDate === today) return;
+        const order = ["push", "pull", "legs"];
+        const nextIdx = (order.indexOf(lastDayType) + 1) % 3;
+        setSuggestedDay(order[nextIdx]);
+        setDay(order[nextIdx]);
+      } catch {}
+    })();
+    return () => { mounted = false; };
+  }, []);
   const [theme, setTheme] = React.useState(() => {
     try {
       const saved = localStorage.getItem("theme");
@@ -1169,12 +1514,49 @@ function WorkoutApp() {
   const [showAddForm, setShowAddForm] = React.useState(false);
   const addCustom = React.useCallback((data) => {
     const id = `c_${Date.now()}`;
-    setCustomExercises(list => [...list, { ...data, id, isCustom: true, nameEn: "", equipment: "custom", instructions: "", images: [], sourceName: "custom", recMin: 0, recMax: 0 }]);
+    const images = data.customImage ? [data.customImage] : [];
+    setCustomExercises(list => [...list, {
+      ...data, id, isCustom: true,
+      nameEn: "", equipment: "custom", instructions: "",
+      images, sourceName: "custom",
+      recMin: 0, recMax: 0,
+      customVideo: data.customVideo || null,
+    }]);
     setShowAddForm(false);
   }, []);
   const deleteCustom = React.useCallback((id) => {
     if (!window.confirm("Удалить это упражнение? История подходов сохранится во вкладке «История».")) return;
     setCustomExercises(list => list.filter(x => x.id !== id));
+  }, []);
+
+  // Замены упражнений на сегодня (сбрасываются в полночь)
+  const [substitutions, setSubstitutions] = React.useState(() => {
+    try {
+      const s = localStorage.getItem("substitutions");
+      if (!s) return {};
+      const parsed = JSON.parse(s);
+      if (parsed._date !== new Date().toISOString().slice(0, 10)) return {};
+      return parsed.map || {};
+    } catch { return {}; }
+  });
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("substitutions", JSON.stringify({
+        _date: new Date().toISOString().slice(0, 10),
+        map: substitutions
+      }));
+    } catch {}
+  }, [substitutions]);
+  const [subFor, setSubFor] = React.useState(null);
+  const substituteEx = React.useCallback((origId, newEx) => {
+    setSubstitutions(s => ({ ...s, [origId]: newEx }));
+    setSubFor(null);
+  }, []);
+  const clearSub = React.useCallback((origId) => {
+    setSubstitutions(s => {
+      const { [origId]: _drop, ...rest } = s;
+      return rest;
+    });
   }, []);
 
   React.useEffect(() => {
@@ -1219,7 +1601,10 @@ function WorkoutApp() {
   const closeRest = React.useCallback(() => setRestTimer(null), []);
 
   const program = PROGRAMS[programKey] || {};
-  const programExercises = program[day] || [];
+  const rawProgramExercises = program[day] || [];
+  const programExercises = rawProgramExercises.map(ex =>
+    substitutions[ex.id] ? { ...substitutions[ex.id], _origId: ex.id, _substituted: true } : ex
+  );
   const customForDay = customExercises.filter(x => x.dayType === day);
   const allExercises = [...programExercises, ...customForDay];
 
@@ -1401,6 +1786,8 @@ function WorkoutApp() {
         .hist-empty { padding: 40px 20px; text-align: center; color: var(--chalk-dim); font-size: 14px; line-height: 1.6; }
         .hist-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
 
+        .backup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        .backup-row .btn-export { margin-bottom: 0; padding: 10px 8px; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .btn-export { width: 100%; padding: 12px; background: transparent; border: 1px dashed var(--line); border-radius: 10px; color: var(--chalk-dim); font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; margin-bottom: 20px; transition: all 0.15s ease; }
         .btn-export:hover { border-color: var(--rust); border-style: solid; color: var(--rust); }
         .btn-export:active { transform: scale(0.98); }
@@ -1495,6 +1882,55 @@ function WorkoutApp() {
         .btn-show-more:hover { border-color: var(--rust); color: var(--rust); border-style: solid; }
         .btn-show-more:active { transform: scale(0.98); }
 
+        /* Autosuggested day */
+        .day-plate--suggested { border-color: var(--olive); background: rgba(124,148,115,0.08); }
+        .day-plate--suggested .day-plate-sub { color: var(--olive); }
+        .day-plate-hint { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--olive); margin-top: 4px; }
+
+        /* Substitute UI */
+        .ex-sub-badge { display: inline-block; margin-left: 6px; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--olive); background: rgba(124,148,115,0.14); padding: 2px 6px; border-radius: 3px; vertical-align: middle; }
+        .ex-sub-btn { background: transparent; border: none; color: var(--chalk-dim); font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 6px; -webkit-appearance: none; appearance: none; transition: color 0.15s ease; }
+        .ex-sub-btn:hover { color: var(--rust); }
+        .ex-sub-btn:active { transform: scale(0.9); }
+        .ex-sub-btn--clear { color: var(--olive); }
+
+        /* Substitute modal */
+        .modal-hint { font-size: 11px; color: var(--chalk-dim); margin-bottom: 12px; }
+        .sub-list { max-height: 45vh; overflow-y: auto; margin: 8px -4px 12px; padding: 0 4px; display: flex; flex-direction: column; gap: 6px; }
+        .sub-item { background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; text-align: left; cursor: pointer; -webkit-appearance: none; appearance: none; color: var(--chalk); transition: all 0.15s ease; }
+        .sub-item:hover { border-color: var(--rust); background: var(--rust-tint); }
+        .sub-item:active { transform: scale(0.99); }
+        .sub-item-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+        .sub-item-meta { font-size: 11px; color: var(--chalk-dim); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .sub-src { margin-left: auto; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rust); }
+        .sub-empty { color: var(--chalk-dim); text-align: center; padding: 20px; font-size: 12px; }
+
+        /* Session note */
+        .sess-metric--note { color: var(--rust); }
+        .sess-note-block { padding: 10px 0 4px; margin-top: 4px; border-top: 1px dashed var(--line); }
+        .sess-note-toggle { width: 100%; text-align: left; background: transparent; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; color: var(--chalk-dim); font-size: 12px; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .sess-note-toggle:hover { border-color: var(--rust); color: var(--rust); border-style: solid; }
+        .sess-note-input { width: 100%; padding: 10px; background: var(--surface2); border: 1px solid var(--line); border-radius: 8px; color: var(--chalk); font-size: 13px; font-family: 'Inter', sans-serif; resize: vertical; margin-bottom: 8px; -webkit-appearance: none; appearance: none; box-sizing: border-box; }
+        .sess-note-input:focus { outline: none; border-color: var(--rust); }
+
+        /* Body log panel */
+        .body-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 20px; }
+        .body-summary { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+        .body-weight-block { display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
+        .body-weight-val { font-family: 'Oswald', sans-serif; font-size: 22px; font-weight: 700; color: var(--chalk); }
+        .body-weight-diff { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+        .body-weight-diff.up { color: #f87171; background: rgba(248,113,113,0.14); }
+        .body-weight-diff.down { color: #4ade80; background: rgba(74,222,128,0.14); }
+        .body-weight-diff.flat { color: var(--chalk-dim); }
+        .body-weight-lbl { font-size: 11px; color: var(--chalk-dim); margin-left: 4px; }
+        .body-spark { flex: 1; height: 40px; min-width: 0; }
+        .btn-body-toggle { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--line); border-radius: 8px; color: var(--chalk-dim); font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .btn-body-toggle:hover { border-color: var(--rust); color: var(--rust); border-style: solid; }
+        .body-form { margin-top: 10px; }
+        .stars { display: flex; gap: 4px; }
+        .star { background: transparent; border: none; color: var(--chalk-dim); font-size: 22px; cursor: pointer; padding: 2px; -webkit-appearance: none; appearance: none; transition: color 0.15s ease; }
+        .star--on { color: var(--rust); }
+
         .sess-ex-line1-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .sess-edit-btn { background: transparent; border: none; color: var(--chalk-dim); font-size: 15px; cursor: pointer; padding: 2px 6px; line-height: 1; -webkit-appearance: none; appearance: none; border-radius: 4px; transition: all 0.15s ease; }
         .sess-edit-btn:hover { color: var(--rust); background: var(--rust-tint); }
@@ -1546,11 +1982,12 @@ function WorkoutApp() {
         {Object.keys(program).map((d) => (
           <button
             key={d}
-            className={`day-plate ${mode === "train" && day === d ? "day-plate--on" : ""}`}
+            className={`day-plate ${mode === "train" && day === d ? "day-plate--on" : ""} ${suggestedDay === d && day !== d ? "day-plate--suggested" : ""}`}
             onClick={() => { setDay(d); setMode("train"); }}
           >
             <div className="day-plate-name">{DAY_META[d].label}</div>
             <div className="day-plate-sub">{DAY_META[d].ru}</div>
+            {suggestedDay === d && day === d && <div className="day-plate-hint">по плану</div>}
           </button>
         ))}
       </div>
@@ -1584,11 +2021,13 @@ function WorkoutApp() {
         <div className="ex-list">
           {programExercises.map((ex, idx) => (
             <ExerciseCard
-              key={`${programKey}:${ex.id}`}
+              key={`${programKey}:${ex._origId || ex.id}`}
               ex={ex}
               index={idx}
               onStartRest={startRest}
               onProgress={updateExProgress}
+              onSubstitute={() => setSubFor(ex._origId || ex.id)}
+              onClearSub={ex._substituted ? () => clearSub(ex._origId) : null}
             />
           ))}
           {customForDay.length > 0 && (
@@ -1615,6 +2054,17 @@ function WorkoutApp() {
           defaultDay={day}
           onCancel={() => setShowAddForm(false)}
           onAdd={addCustom}
+        />
+      )}
+
+      {subFor && (
+        <SubstituteModal
+          origId={subFor}
+          dayType={day}
+          allPrograms={PROGRAMS}
+          customExercises={customExercises}
+          onCancel={() => setSubFor(null)}
+          onPick={(newEx) => substituteEx(subFor, newEx)}
         />
       )}
 
