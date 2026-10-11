@@ -133,6 +133,41 @@ function saveNote(date, text) {
     localStorage.setItem("sessionNotes", JSON.stringify(all));
   } catch {}
 }
+// Типы активностей (не силовых тренировок) — для раздела "Активности"
+const ACTIVITY_TYPES = [
+  { id: "tennis",     name: "Теннис",         emoji: "🎾", unit: "мин" },
+  { id: "run",        name: "Бег",            emoji: "🏃", unit: "мин", extraUnit: "км" },
+  { id: "pullups",    name: "Турник",         emoji: "🤸", unit: "раз" },
+  { id: "football",   name: "Футбол",         emoji: "⚽", unit: "мин" },
+  { id: "cycling",    name: "Велосипед",      emoji: "🚴", unit: "мин", extraUnit: "км" },
+  { id: "swimming",   name: "Плавание",       emoji: "🏊", unit: "мин", extraUnit: "м" },
+  { id: "yoga",       name: "Йога/растяжка",  emoji: "🧘", unit: "мин" },
+  { id: "hiking",     name: "Поход/прогулка", emoji: "🥾", unit: "мин", extraUnit: "км" },
+  { id: "basketball", name: "Баскетбол",      emoji: "🏀", unit: "мин" },
+  { id: "ski",        name: "Лыжи/сноуборд",  emoji: "🎿", unit: "мин" },
+  { id: "boxing",     name: "Бокс/единоборства", emoji: "🥊", unit: "мин" },
+  { id: "dance",      name: "Танцы",          emoji: "💃", unit: "мин" },
+  { id: "stretch",    name: "Другое",         emoji: "💪", unit: "мин" },
+];
+
+// Активности хранятся как массив { id, typeId, date, duration, extra, intensity, note }
+function loadActivities() {
+  try { return JSON.parse(localStorage.getItem("activities") || "[]"); } catch { return []; }
+}
+function saveActivity(entry) {
+  try {
+    const all = loadActivities();
+    all.push(entry);
+    localStorage.setItem("activities", JSON.stringify(all));
+  } catch {}
+}
+function deleteActivity(id) {
+  try {
+    const all = loadActivities().filter(a => a.id !== id);
+    localStorage.setItem("activities", JSON.stringify(all));
+  } catch {}
+}
+
 function loadBodyLog() {
   try { return JSON.parse(localStorage.getItem("bodyLog") || "{}"); } catch { return {}; }
 }
@@ -854,7 +889,7 @@ function WeekChart({ buckets }) {
   );
 }
 
-function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
+function CalendarMonth({ date, sessions, activities, onPrev, onNext, canPrev, canNext }) {
   const [selectedDate, setSelectedDate] = React.useState(null);
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -864,9 +899,14 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
   const startingDayOfWeek = firstDay.getDay();
 
   const trainingDates = new Set(sessions.map(s => s.date));
-  // Сколько тренировок в этом конкретном месяце
+  const activityDates = new Set((activities || []).map(a => a.date));
+  // Сколько тренировок + активностей в этом конкретном месяце
   const monthCount = sessions.filter(s => {
     const d = new Date(s.date + "T00:00:00");
+    return d.getFullYear() === year && d.getMonth() === month;
+  }).length;
+  const monthActCount = (activities || []).filter(a => {
+    const d = new Date(a.date + "T00:00:00");
     return d.getFullYear() === year && d.getMonth() === month;
   }).length;
 
@@ -875,6 +915,7 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
   const selectedSession = selectedDate ? sessions.find(s => s.date === selectedDate) : null;
+  const selectedActs = selectedDate ? (activities || []).filter(a => a.date === selectedDate) : [];
 
   // Сбрасываем выделенный день при смене месяца
   React.useEffect(() => { setSelectedDate(null); }, [year, month]);
@@ -891,6 +932,7 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
         <div className="calendar-header">
           {RU_MONTHS[month]} {year}
           {monthCount > 0 && <span className="cal-count">{monthCount} трен.</span>}
+          {monthActCount > 0 && <span className="cal-count cal-count--act">+{monthActCount} акт.</span>}
         </div>
         <button
           className="cal-nav-btn"
@@ -907,22 +949,28 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
           if (day === null) return <div key={`empty-${i}`} className="calendar-day empty" />;
           const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const hasTraining = trainingDates.has(dateStr);
+          const hasActivity = activityDates.has(dateStr);
           return (
             <button
               key={dateStr}
-              className={`calendar-day ${hasTraining ? "has-training" : ""} ${selectedDate === dateStr ? "selected" : ""}`}
+              className={`calendar-day ${hasTraining ? "has-training" : ""} ${hasActivity && !hasTraining ? "has-activity" : ""} ${selectedDate === dateStr ? "selected" : ""}`}
               onClick={() => setSelectedDate(selectedDate === dateStr ? null : dateStr)}
             >
               <div className="cal-day-num">{day}</div>
-              {hasTraining && <div className="cal-indicator">●</div>}
+              {(hasTraining || hasActivity) && (
+                <div className="cal-indicator-row">
+                  {hasTraining && <span className="cal-dot cal-dot--train">●</span>}
+                  {hasActivity && <span className="cal-dot cal-dot--act">●</span>}
+                </div>
+              )}
             </button>
           );
         })}
       </div>
-      {selectedSession && (
+      {(selectedSession || selectedActs.length > 0) && (
         <div className="calendar-detail">
-          <div className="detail-date">{fmtDateRu(selectedSession.date)}</div>
-          {selectedSession.entries.map((e) => (
+          <div className="detail-date">{fmtDateRu(selectedDate)}</div>
+          {selectedSession && selectedSession.entries.map((e) => (
             <div className="detail-ex" key={e.exId}>
               <div className="detail-name">{e.name}</div>
               <div className="detail-sets">
@@ -932,6 +980,18 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
               </div>
             </div>
           ))}
+          {selectedActs.map(a => {
+            const meta = ACTIVITY_TYPES.find(t => t.id === a.typeId) || { name: a.typeId, emoji: "💪", unit: "мин" };
+            return (
+              <div className="detail-ex" key={a.id}>
+                <div className="detail-name">{meta.emoji} {meta.name}</div>
+                <div className="detail-sets">
+                  {a.duration && <span className="detail-chip">{a.duration} {meta.unit}</span>}
+                  {a.extra && meta.extraUnit && <span className="detail-chip">{a.extra} {meta.extraUnit}</span>}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -941,6 +1001,7 @@ function CalendarMonth({ date, sessions, onPrev, onNext, canPrev, canNext }) {
 function HistoryView() {
   const [loading, setLoading] = React.useState(true);
   const [sessions, setSessions] = React.useState([]);
+  const [activities, setActivities] = React.useState(() => loadActivities());
   const [stats, setStats] = React.useState({ total: 0, thisWeek: 0, buckets: [], progress: { up: 0, down: 0, flat: 0 }, prs: [] });
   const [showAllSessions, setShowAllSessions] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(0);
@@ -1103,9 +1164,14 @@ function HistoryView() {
     return () => { mounted = false; };
   }, [reloadKey]);
 
+  // Пересчитываем активности при перезагрузке
+  React.useEffect(() => {
+    setActivities(loadActivities());
+  }, [reloadKey]);
+
   if (loading) return <div className="hist-empty">Загружаю историю…</div>;
 
-  if (!sessions.length) {
+  if (!sessions.length && activities.length === 0) {
     return (
       <div className="hist-empty">
         Пока нет сохранённых тренировок.<br />
@@ -1140,6 +1206,7 @@ function HistoryView() {
         if (data.bodyLog) localStorage.setItem("bodyLog", JSON.stringify(data.bodyLog));
         if (data.substitutions) localStorage.setItem("substitutions", JSON.stringify(data.substitutions));
         if (data.customExercises) localStorage.setItem("customExercises", JSON.stringify(data.customExercises));
+        if (data.activities) localStorage.setItem("activities", JSON.stringify(data.activities));
       } catch {}
       alert(`Загружено. Записей: ${count}. Страница будет перезагружена.`);
       window.location.reload();
@@ -1158,7 +1225,7 @@ function HistoryView() {
         if (r) entries[k] = r.value;
       }
       const settings = {};
-      let notes = null, bodyLog = null, substitutions = null, customExercises = null;
+      let notes = null, bodyLog = null, substitutions = null, customExercises = null, activities = null;
       try {
         const t = localStorage.getItem("theme");
         const p = localStorage.getItem("activeProgram");
@@ -1168,14 +1235,15 @@ function HistoryView() {
         const b = localStorage.getItem("bodyLog"); if (b) bodyLog = JSON.parse(b);
         const s = localStorage.getItem("substitutions"); if (s) substitutions = JSON.parse(s);
         const c = localStorage.getItem("customExercises"); if (c) customExercises = JSON.parse(c);
+        const act = localStorage.getItem("activities"); if (act) activities = JSON.parse(act);
       } catch {}
       const payload = {
         app: "ppl-workout-tracker",
-        version: 2,
+        version: 3,
         exportedAt: new Date().toISOString(),
         settings,
         entries,
-        notes, bodyLog, substitutions, customExercises,
+        notes, bodyLog, substitutions, customExercises, activities,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -1272,6 +1340,7 @@ function HistoryView() {
           <CalendarMonth
             date={calDate}
             sessions={sessions}
+            activities={activities}
             onPrev={goPrev}
             onNext={goNext}
             canPrev={!atEarliest}
@@ -1314,23 +1383,59 @@ function HistoryView() {
         </>
       )}
 
-      <div className="hist-block-title">Все тренировки</div>
+      <div className="hist-block-title">Все тренировки и активности</div>
       <div className="sess-list">
-        {(showAllSessions ? sessions : sessions.slice(0, SESSIONS_PREVIEW)).map((s) => (
-          <SessionCard
-            key={s.date}
-            date={s.date}
-            dayType={s.dayType}
-            entries={s.entries}
-            plannedTotal={s.plannedTotal}
-            onSessionUpdated={triggerReload}
-          />
-        ))}
-        {!showAllSessions && sessions.length > SESSIONS_PREVIEW && (
-          <button className="btn-show-more" onClick={() => setShowAllSessions(true)}>
-            Показать все ({sessions.length})
-          </button>
-        )}
+        {(() => {
+          // Объединяем сессии и активности, сортируем по дате убывающе
+          const items = [
+            ...sessions.map(s => ({ kind: "sess", date: s.date, data: s })),
+            ...activities.map(a => ({ kind: "act", date: a.date, data: a })),
+          ].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+          const shown = showAllSessions ? items : items.slice(0, SESSIONS_PREVIEW);
+          return (
+            <>
+              {shown.map((item, i) => {
+                if (item.kind === "sess") {
+                  const s = item.data;
+                  return (
+                    <SessionCard
+                      key={`s-${s.date}`}
+                      date={s.date}
+                      dayType={s.dayType}
+                      entries={s.entries}
+                      plannedTotal={s.plannedTotal}
+                      onSessionUpdated={triggerReload}
+                    />
+                  );
+                }
+                const a = item.data;
+                const meta = ACTIVITY_TYPES.find(t => t.id === a.typeId) || { name: a.typeId, emoji: "💪", unit: "мин" };
+                return (
+                  <div key={`a-${a.id}`} className="sess-card sess-card--activity">
+                    <div className="sess-head">
+                      <div className="activity-emoji-small">{meta.emoji}</div>
+                      <div className="sess-headtext">
+                        <div className="sess-date">{fmtDateRu(a.date)}</div>
+                        <div className="sess-sub">
+                          <span className="sess-tag sess-tag--act">АКТ.</span>
+                          <span className="sess-metric">{meta.name}</span>
+                          {a.duration && <span className="sess-metric">{a.duration} {meta.unit}</span>}
+                          {a.extra && meta.extraUnit && <span className="sess-metric">{a.extra} {meta.extraUnit}</span>}
+                        </div>
+                        {a.note && <div className="activity-note" style={{marginTop:"6px"}}>{a.note}</div>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {!showAllSessions && items.length > SESSIONS_PREVIEW && (
+                <button className="btn-show-more" onClick={() => setShowAllSessions(true)}>
+                  Показать все ({items.length})
+                </button>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
@@ -1530,6 +1635,178 @@ function SubstituteModal({ origId, dayType, allPrograms, customExercises, onCanc
           <button className="btn-modal btn-modal--cancel" onClick={onCancel}>Отмена</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ActivityView() {
+  const [activities, setActivities] = React.useState(() => loadActivities());
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [typeId, setTypeId] = React.useState("tennis");
+  const [duration, setDuration] = React.useState("");
+  const [extra, setExtra] = React.useState("");
+  const [intensity, setIntensity] = React.useState("medium");
+  const [date, setDate] = React.useState(todayKey());
+  const [note, setNote] = React.useState("");
+
+  const typeMeta = ACTIVITY_TYPES.find(t => t.id === typeId) || ACTIVITY_TYPES[0];
+
+  const resetForm = () => {
+    setTypeId("tennis"); setDuration(""); setExtra("");
+    setIntensity("medium"); setDate(todayKey()); setNote("");
+  };
+
+  const commit = () => {
+    const d = parseInt(duration, 10) || 0;
+    const ex = parseFloat(extra);
+    const entry = {
+      id: `act_${Date.now()}`,
+      typeId,
+      date,
+      duration: d > 0 ? d : null,
+      extra: !isNaN(ex) && ex > 0 ? ex : null,
+      intensity,
+      note: note.trim() || null,
+    };
+    saveActivity(entry);
+    setActivities(loadActivities());
+    setAddOpen(false);
+    resetForm();
+  };
+
+  const removeOne = (id) => {
+    if (!window.confirm("Удалить эту активность?")) return;
+    deleteActivity(id);
+    setActivities(loadActivities());
+  };
+
+  // Сортировка: свежие сверху
+  const sorted = [...activities].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  const INT_LABEL = { low: "лёгкая", medium: "средняя", high: "высокая" };
+
+  return (
+    <div className="activity-view">
+      {!addOpen ? (
+        <button className="btn-add-activity" onClick={() => setAddOpen(true)}>
+          ＋ Добавить активность
+        </button>
+      ) : (
+        <div className="activity-form">
+          <div className="form-field">
+            <label className="form-label">Тип</label>
+            <div className="act-type-grid">
+              {ACTIVITY_TYPES.map(t => (
+                <button
+                  key={t.id}
+                  className={`act-type-chip ${typeId === t.id ? "act-type-chip--on" : ""}`}
+                  onClick={() => setTypeId(t.id)}
+                >
+                  <span className="act-emoji">{t.emoji}</span>
+                  <span className="act-type-name">{t.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Дата</label>
+            <input
+              type="date"
+              className="form-input"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">{typeMeta.unit === "раз" ? "Повторений" : "Длительность, мин"}</label>
+              <input
+                type="number" inputMode="numeric" min="0"
+                className="form-input"
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
+                placeholder={typeMeta.unit === "раз" ? "25" : "60"}
+              />
+            </div>
+            {typeMeta.extraUnit && (
+              <div className="form-field">
+                <label className="form-label">{typeMeta.extraUnit}</label>
+                <input
+                  type="number" inputMode="decimal" step="0.1" min="0"
+                  className="form-input"
+                  value={extra}
+                  onChange={e => setExtra(e.target.value)}
+                  placeholder={typeMeta.extraUnit === "км" ? "4.5" : "500"}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Интенсивность</label>
+            <div className="intensity-row">
+              {["low","medium","high"].map(lvl => (
+                <button
+                  key={lvl}
+                  className={`intensity-chip intensity-chip--${lvl} ${intensity === lvl ? "intensity-chip--on" : ""}`}
+                  onClick={() => setIntensity(lvl)}
+                >
+                  {INT_LABEL[lvl]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-field">
+            <label className="form-label">Заметка (необязательно)</label>
+            <input
+              type="text"
+              className="form-input"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="как прошло, с кем, настроение..."
+            />
+          </div>
+
+          <div className="modal-actions">
+            <button className="btn-modal btn-modal--cancel" onClick={() => { setAddOpen(false); resetForm(); }}>Отмена</button>
+            <button className="btn-modal btn-modal--primary" onClick={commit}>Сохранить</button>
+          </div>
+        </div>
+      )}
+
+      <div className="hist-block-title" style={{marginTop: "24px"}}>Последние активности</div>
+      {sorted.length === 0 ? (
+        <div className="activity-empty">
+          Ещё нет записей. Теннис, бег, подтягивания и всё что не в силовой программе — фиксируй здесь.
+        </div>
+      ) : (
+        <div className="activity-list">
+          {sorted.slice(0, 30).map(a => {
+            const meta = ACTIVITY_TYPES.find(t => t.id === a.typeId) || { name: a.typeId, emoji: "💪", unit: "мин" };
+            return (
+              <div key={a.id} className={`activity-card activity-card--${a.intensity || "medium"}`}>
+                <div className="activity-emoji-big">{meta.emoji}</div>
+                <div className="activity-main">
+                  <div className="activity-head">
+                    <span className="activity-name">{meta.name}</span>
+                    <span className="activity-date">{fmtDateRu(a.date)}</span>
+                  </div>
+                  <div className="activity-sub">
+                    {a.duration ? `${a.duration} ${meta.unit}` : ""}
+                    {a.extra && meta.extraUnit ? ` · ${a.extra} ${meta.extraUnit}` : ""}
+                    {a.intensity ? ` · ${INT_LABEL[a.intensity]}` : ""}
+                  </div>
+                  {a.note && <div className="activity-note">{a.note}</div>}
+                </div>
+                <button className="activity-del" onClick={() => removeOne(a.id)} aria-label="Удалить">×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1882,6 +2159,8 @@ function WorkoutApp() {
         .prog-dd-check { color: var(--rust); font-size: 14px; font-weight: 700; flex-shrink: 0; }
 
         .day-rack { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 20px 0 20px; }
+        .day-rack--4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .day-plate--act .day-plate-name { font-size: 14px; }
         .day-plate { padding: 16px 6px 14px; text-align: center; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; color: var(--chalk); -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
         .day-plate:active { transform: scale(0.98); }
         .day-plate--on { border-color: var(--rust); background: var(--rust); color: #0a0a0a; }
@@ -2146,6 +2425,53 @@ function WorkoutApp() {
         .star { background: transparent; border: none; color: var(--chalk-dim); font-size: 22px; cursor: pointer; padding: 2px; -webkit-appearance: none; appearance: none; transition: color 0.15s ease; }
         .star--on { color: var(--rust); }
 
+        /* Activity view */
+        .activity-view { padding: 0 20px 24px; }
+        .btn-add-activity { width: 100%; margin: 16px 0 8px; padding: 16px; background: var(--rust); border: 1px solid var(--rust); border-radius: 14px; color: #0a0a0a; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .btn-add-activity:active { transform: scale(0.98); }
+        .btn-add-activity:hover { background: var(--rust-dim); border-color: var(--rust-dim); }
+
+        .activity-form { margin: 16px 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+        .act-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
+        .act-type-chip { padding: 10px 6px; background: transparent; border: 1px solid var(--line); border-radius: 10px; color: var(--chalk); font-family: inherit; font-size: 11px; cursor: pointer; -webkit-appearance: none; appearance: none; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: all 0.15s ease; }
+        .act-type-chip:hover { border-color: var(--rust); }
+        .act-type-chip--on { border-color: var(--rust); background: var(--rust-tint); }
+        .act-emoji { font-size: 20px; line-height: 1; }
+        .act-type-name { line-height: 1.1; text-align: center; }
+        .intensity-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .intensity-chip { padding: 10px; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: var(--chalk-dim); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; }
+        .intensity-chip--on { color: var(--chalk); background: var(--surface2); border-color: var(--chalk-dim); }
+        .intensity-chip--low.intensity-chip--on { border-color: #4ade80; background: rgba(74,222,128,0.14); color: #4ade80; }
+        .intensity-chip--medium.intensity-chip--on { border-color: var(--rust); background: var(--rust-tint); color: var(--rust); }
+        .intensity-chip--high.intensity-chip--on { border-color: #f87171; background: rgba(248,113,113,0.14); color: #f87171; }
+
+        .activity-list { display: flex; flex-direction: column; gap: 8px; }
+        .activity-empty { padding: 24px; text-align: center; color: var(--chalk-dim); font-size: 13px; line-height: 1.5; background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; }
+        .activity-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; position: relative; }
+        .activity-card--low { border-left: 3px solid #4ade80; }
+        .activity-card--medium { border-left: 3px solid var(--rust); }
+        .activity-card--high { border-left: 3px solid #f87171; }
+        .activity-emoji-big { font-size: 28px; flex-shrink: 0; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: var(--surface2); border-radius: 50%; }
+        .activity-emoji-small { font-size: 22px; flex-shrink: 0; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--surface2); border-radius: 50%; }
+        .activity-main { flex: 1; min-width: 0; }
+        .activity-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .activity-name { font-size: 14px; font-weight: 600; color: var(--chalk); }
+        .activity-date { font-size: 11px; color: var(--chalk-dim); }
+        .activity-sub { font-size: 12px; color: var(--chalk-dim); margin-top: 2px; }
+        .activity-note { font-size: 12px; color: var(--chalk-dim); margin-top: 4px; font-style: italic; }
+        .activity-del { background: transparent; border: none; color: var(--chalk-dim); font-size: 22px; cursor: pointer; padding: 4px 8px; line-height: 1; -webkit-appearance: none; appearance: none; }
+        .activity-del:hover { color: #f87171; }
+
+        /* Activity dot in calendar + card in history */
+        .calendar-day.has-activity { border-color: #4ade80; }
+        .cal-indicator-row { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; gap: 3px; font-size: 7px; }
+        .cal-dot--train { color: var(--rust); }
+        .cal-dot--act { color: #4ade80; }
+        .calendar-day.selected .cal-dot--train, .calendar-day.selected .cal-dot--act { color: #0a0a0a; }
+        .cal-count--act { color: #4ade80 !important; background: rgba(74,222,128,0.12) !important; }
+        .sess-tag--act { background: rgba(74,222,128,0.14) !important; color: #4ade80 !important; }
+        .sess-card--activity { background: var(--surface); }
+
         /* Compact mode toggle */
         .day-progress-row { display: flex; align-items: center; gap: 10px; }
         .compact-toggle { background: transparent; border: 1px solid var(--line); border-radius: 999px; height: 26px; padding: 0 12px; color: var(--chalk-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; -webkit-appearance: none; appearance: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s ease; }
@@ -2255,7 +2581,7 @@ function WorkoutApp() {
         </div>
       </div>
 
-      <div className="day-rack">
+      <div className="day-rack day-rack--4">
         {Object.keys(program).map((d) => (
           <button
             key={d}
@@ -2267,6 +2593,13 @@ function WorkoutApp() {
             {suggestedDay === d && day === d && <div className="day-plate-hint">по плану</div>}
           </button>
         ))}
+        <button
+          className={`day-plate day-plate--act ${mode === "activity" ? "day-plate--on" : ""}`}
+          onClick={() => { setMode("activity"); }}
+        >
+          <div className="day-plate-name">АКТ.</div>
+          <div className="day-plate-sub">Прочее</div>
+        </button>
       </div>
 
       {mode === "train" && plannedSetsInDay > 0 && (
@@ -2292,14 +2625,18 @@ function WorkoutApp() {
         </div>
       )}
 
-      <div className="view-tabs">
-        <button className={`view-tab ${mode === "train" ? "view-tab--on" : ""}`} onClick={() => setMode("train")}>
-          Тренировка
-        </button>
-        <button className={`view-tab ${mode === "history" ? "view-tab--on" : ""}`} onClick={() => setMode("history")}>
-          История
-        </button>
-      </div>
+      {mode !== "activity" && (
+        <div className="view-tabs">
+          <button className={`view-tab ${mode === "train" ? "view-tab--on" : ""}`} onClick={() => setMode("train")}>
+            Тренировка
+          </button>
+          <button className={`view-tab ${mode === "history" ? "view-tab--on" : ""}`} onClick={() => setMode("history")}>
+            История
+          </button>
+        </div>
+      )}
+
+      {mode === "activity" && <ActivityView />}
 
       {mode === "train" && (
         <div className={`ex-list ${compactMode ? "ex-list--compact" : ""}`}>
