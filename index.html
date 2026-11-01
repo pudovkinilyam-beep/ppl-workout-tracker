@@ -81,6 +81,34 @@ const DAY_META = {
   legs: { label: "LEGS", sub: "Ноги · Ягодицы · Кор", code: "03", ru: "Ноги" },
 };
 
+// План тренировок: Пн/Ср/Пт, сквозной цикл push → pull → legs
+// Старт — PUSH в понедельник 02.11.2026. Цикл не прерывается на границе месяцев.
+const PLAN_START = "2026-11-02";
+const PLAN_MONTHS = [
+  { key: "2026-11", label: "Ноябрь 2026" },
+  { key: "2026-12", label: "Декабрь 2026" },
+];
+const PLAN_SCHEDULE = (() => {
+  const order = ["push", "pull", "legs"];
+  const WD = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+  const out = [];
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  let i = 0;
+  const [sy, sm, sd] = PLAN_START.split("-").map(Number);
+  const cur = new Date(sy, sm - 1, sd);
+  const end = new Date(2026, 11, 31);
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow === 1 || dow === 3 || dow === 5) {
+      const date = fmt(cur);
+      out.push({ date, month: date.slice(0, 7), dow: WD[dow], dayType: order[i % 3] });
+      i++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+})();
+
 const TARGET_RU = {
   pectorals: "грудь", delts: "дельты", triceps: "трицепс", lats: "широчайшие",
   "upper back": "верх спины", biceps: "бицепс", glutes: "ягодицы", quads: "квадрицепс",
@@ -994,6 +1022,99 @@ function CalendarMonth({ date, sessions, activities, onPrev, onNext, canPrev, ca
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function PlanView({ onPick }) {
+  // Даты, в которые есть сохранённая тренировка: { "2026-11-02": "push", ... }
+  const [doneMap, setDoneMap] = React.useState(null);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const map = {};
+      try {
+        const listing = await window.storage.list("log:", false);
+        const keys = (listing && listing.keys) ? listing.keys : [];
+        for (const k of keys) {
+          const r = await window.storage.get(k, false);
+          if (!r) continue;
+          try {
+            const log = JSON.parse(r.value);
+            const dt = log.meta && log.meta.dayType;
+            if (!dt || !Array.isArray(log.history)) continue;
+            log.history.forEach(h => { if (h.date) map[h.date] = dt; });
+          } catch {}
+        }
+      } catch {}
+      if (mounted) setDoneMap(map);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const today = todayKey();
+  const done = doneMap || {};
+  const totals = PLAN_SCHEDULE.reduce((a, s) => { a[s.dayType] = (a[s.dayType] || 0) + 1; return a; }, {});
+  const completedCount = PLAN_SCHEDULE.filter(s => done[s.date]).length;
+
+  return (
+    <div className="plan-view">
+      <div className="plan-summary">
+        <div className="plan-summary-main">
+          {completedCount}/{PLAN_SCHEDULE.length} тренировок
+        </div>
+        <div className="plan-summary-sub">
+          {Object.keys(DAY_META).map(d => `${DAY_META[d].label} ${totals[d] || 0}`).join(" · ")}
+        </div>
+      </div>
+
+      {PLAN_MONTHS.map(m => {
+        const rows = PLAN_SCHEDULE.filter(s => s.month === m.key);
+        if (!rows.length) return null;
+        return (
+          <div className="plan-month" key={m.key}>
+            <div className="plan-month-title">{m.label}</div>
+            <div className="plan-rows">
+              {rows.map(s => {
+                const isToday = s.date === today;
+                const isDone = !!done[s.date];
+                const isPast = s.date < today;
+                const meta = DAY_META[s.dayType];
+                const cls = [
+                  "plan-row",
+                  isToday ? "plan-row--today" : "",
+                  isDone ? "plan-row--done" : "",
+                  (isPast && !isDone) ? "plan-row--missed" : "",
+                ].join(" ").trim();
+                return (
+                  <button
+                    className={cls}
+                    key={s.date}
+                    onClick={() => onPick && onPick(s.dayType)}
+                    title={`${meta.label} — ${meta.sub}`}
+                  >
+                    <span className="plan-row-date">
+                      {Number(s.date.slice(8, 10))}
+                      <span className="plan-row-dow">{s.dow}</span>
+                    </span>
+                    <span className="plan-row-body">
+                      <span className="plan-row-name">{meta.label}</span>
+                      <span className="plan-row-sub">{meta.sub}</span>
+                    </span>
+                    <span className="plan-row-mark">
+                      {isDone ? "✓" : isToday ? "сегодня" : ""}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="plan-note">
+        Пропустили день? Порядок цикла не меняется — просто выполните следующую тренировку по списку.
+      </div>
     </div>
   );
 }
@@ -2173,6 +2294,31 @@ function WorkoutApp() {
         .view-tab { padding: 12px 4px; border: none; background: transparent; color: var(--chalk-dim); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; border-radius: 0; -webkit-appearance: none; appearance: none; transition: all 0.15s ease; position: relative; }
         .view-tab--on { color: var(--chalk); }
         .view-tab--on::after { content: ""; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--chalk); }
+        .view-tabs--3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        .plan-view { padding: 4px 20px 32px; }
+        .plan-summary { padding: 16px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+        .plan-summary-main { font-size: 22px; font-weight: 800; color: var(--chalk); letter-spacing: 0.02em; }
+        .plan-summary-sub { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chalk-dim); }
+        .plan-month { margin-bottom: 26px; }
+        .plan-month-title { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--chalk-dim); margin-bottom: 10px; }
+        .plan-rows { display: flex; flex-direction: column; gap: 2px; }
+        .plan-row { display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; background: transparent; border: none; border-left: 2px solid transparent; border-radius: 6px; cursor: pointer; text-align: left; color: inherit; font: inherit; -webkit-appearance: none; appearance: none; transition: background 0.15s ease; }
+        .plan-row:hover { background: var(--line); }
+        .plan-row-date { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+        .plan-row-date { font-size: 17px; font-weight: 800; color: var(--chalk); font-variant-numeric: tabular-nums; }
+        .plan-row-dow { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--chalk-dim); margin-top: 2px; }
+        .plan-row-body { display: flex; flex-direction: column; min-width: 0; }
+        .plan-row-name { font-size: 13px; font-weight: 800; letter-spacing: 0.1em; color: var(--chalk); }
+        .plan-row-sub { font-size: 11px; color: var(--chalk-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .plan-row-mark { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--chalk-dim); }
+        .plan-row--done { border-left-color: var(--chalk); }
+        .plan-row--done .plan-row-mark { color: var(--chalk); font-size: 15px; }
+        .plan-row--done .plan-row-date, .plan-row--done .plan-row-name { opacity: 0.55; }
+        .plan-row--missed .plan-row-date, .plan-row--missed .plan-row-name, .plan-row--missed .plan-row-sub { opacity: 0.35; }
+        .plan-row--today { background: var(--line); border-left-color: var(--chalk); }
+        .plan-row--today .plan-row-mark { color: var(--chalk); }
+        .plan-note { font-size: 11px; line-height: 1.6; color: var(--chalk-dim); padding-top: 14px; border-top: 1px solid var(--line); }
 
         .ex-list { padding: 0; margin: 0; }
         .ex-card { margin: 10px 20px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); }
@@ -2626,9 +2772,12 @@ function WorkoutApp() {
       )}
 
       {mode !== "activity" && (
-        <div className="view-tabs">
+        <div className="view-tabs view-tabs--3">
           <button className={`view-tab ${mode === "train" ? "view-tab--on" : ""}`} onClick={() => setMode("train")}>
             Тренировка
+          </button>
+          <button className={`view-tab ${mode === "plan" ? "view-tab--on" : ""}`} onClick={() => setMode("plan")}>
+            План
           </button>
           <button className={`view-tab ${mode === "history" ? "view-tab--on" : ""}`} onClick={() => setMode("history")}>
             История
@@ -2687,6 +2836,10 @@ function WorkoutApp() {
           onCancel={() => setSubFor(null)}
           onPick={(newEx) => substituteEx(subFor, newEx)}
         />
+      )}
+
+      {mode === "plan" && (
+        <PlanView onPick={(d) => { setDay(d); setMode("train"); }} />
       )}
 
       {mode === "history" && <HistoryView />}
