@@ -1895,6 +1895,18 @@ function RestTimerOverlay({ state, onAdjust, onClose }) {
 
 function WorkoutApp() {
   const [programKey, setProgramKey] = React.useState(() => {
+    // При наступлении нового месяца один раз переключаемся на его программу,
+    // если она есть. Ручной выбор внутри месяца сохраняется.
+    try {
+      const now = new Date();
+      const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const monthKey = MONTH_PROGRAM_KEYS[now.getMonth()];
+      if (PROGRAMS[monthKey] && localStorage.getItem("programMonthStamp") !== stamp) {
+        localStorage.setItem("programMonthStamp", stamp);
+        localStorage.setItem("activeProgram", monthKey);
+        return monthKey;
+      }
+    } catch {}
     try {
       const saved = localStorage.getItem("activeProgram");
       if (saved && PROGRAMS[saved]) return saved;
